@@ -1,7 +1,8 @@
 import './App.css'
 import { useState, useEffect, useRef } from 'react'
 import * as React from 'react'
-import { getRequirements, getAllTasks, uploadRequirementsBatch, updateRequirement, generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
+import { getRequirements, getAllTasks, uploadRequirementsBatch, updateRequirement, generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, getCurrentModelName, type TaskCard } from './api'
+import Settings from './Settings'
 
 interface Requirement {
   rfpId: string
@@ -18,10 +19,19 @@ interface Requirement {
 }
 
 function App() {
+  const [currentPage, setCurrentPage] = useState<'main' | 'settings'>('main')
   const [requirements, setRequirements] = useState<Requirement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set())
+  const [currentModel, setCurrentModel] = useState<string>('Ollama gemma3:12b')
+  // 모든 카드를 기본적으로 펼친 상태로 시작
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(() => {
+    const allIndices = new Set<number>()
+    for (let i = 0; i < 100; i++) { // 충분히 큰 숫자로 초기화
+      allIndices.add(i)
+    }
+    return allIndices
+  })
   const [cardWidth, setCardWidth] = useState(1000)
   const [leftColumnWidth, setLeftColumnWidth] = useState(250)
   const [taskCards, setTaskCards] = useState<TaskCard[]>([])
@@ -49,11 +59,18 @@ function App() {
       try {
         setLoading(true)
 
-        // 요구사항과 과업 데이터를 병렬로 가져오기
-        const [requirementsData, tasksData] = await Promise.all([
+        // 요구사항, 과업 데이터, 현재 모델 정보를 병렬로 가져오기
+        const [requirementsData, tasksData, modelName] = await Promise.all([
           getRequirements(),
-          getAllTasks()
+          getAllTasks(),
+          getCurrentModelName().catch((err) => {
+            console.error('모델 정보 로드 실패:', err)
+            return '설정된 모델 없음'
+          })
         ])
+
+        setCurrentModel(modelName)
+        console.log('현재 사용 중인 모델:', modelName)
 
         setRequirements(requirementsData)
 
@@ -74,7 +91,10 @@ function App() {
               majorCategory: task.majorCategory,
               detailFunctionId: task.detailFunctionId,
               detailFunction: task.detailFunction,
-              subFunction: task.subFunction
+              subFunction: task.subFunction,
+              generatedBy: task.generatedBy,
+              createdAt: task.createdAt,
+              updatedAt: task.updatedAt
             }
           })
           setTaskCards(loadedTasks)
@@ -511,6 +531,20 @@ function App() {
     )
   }
 
+  // 페이지 라우팅
+  if (currentPage === 'settings') {
+    return <Settings onBack={async () => {
+      setCurrentPage('main')
+      // 모델 정보 다시 가져오기
+      try {
+        const modelName = await getCurrentModelName()
+        setCurrentModel(modelName)
+      } catch (err) {
+        console.error('모델 정보 로드 실패:', err)
+      }
+    }} />
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', margin: 0, padding: 0 }}>
       <header style={{
@@ -524,16 +558,33 @@ function App() {
         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         backdropFilter: 'blur(10px)'
       }}>
-        <h1 style={{
-          margin: 0,
-          fontSize: '1.5rem',
-          fontWeight: 700,
-          background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          letterSpacing: '-0.5px'
-        }}>RFP 요구사항 관리</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            letterSpacing: '-0.5px'
+          }}>RFP 요구사항 관리</h1>
+          <div style={{
+            padding: '0.4rem 0.75rem',
+            background: 'rgba(139, 92, 246, 0.15)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: '6px',
+            fontSize: '0.75rem',
+            color: '#a78bfa',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span>🤖</span>
+            <span>{currentModel}</span>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           {batchGenerating && (
             <div style={{
@@ -586,51 +637,32 @@ function App() {
               }
             }}
           >
-            🚀 전체 과업 생성
+            ✨ AI로 전체 과업 생성
           </button>
           <button
-              onClick={expandAll}
+              onClick={() => setCurrentPage('settings')}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#334155',
-                color: '#e2e8f0',
-                border: '1px solid #475569',
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                color: 'white',
+                border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
-                fontWeight: 500,
-                transition: 'all 0.2s'
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#475569'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.4)'
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#334155'
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(139, 92, 246, 0.3)'
               }}
             >
-              전체 펼치기
-            </button>
-            <button
-              onClick={collapseAll}
-              style={{
-                padding: '0.5rem 1rem',
-                backgroundColor: '#334155',
-                color: '#e2e8f0',
-                border: '1px solid #475569',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: 500,
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#475569'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#334155'
-              }}
-            >
-              전체 닫기
+              ⚙️ 모델 설정
             </button>
         </div>
       </header>
@@ -983,7 +1015,7 @@ function App() {
                               }}>⚙️</span>
                             )}
                             <span>
-                              {generatingTasks.has(index) ? '생성 중...' : '✨ 과업 생성'}
+                              {generatingTasks.has(index) ? '생성 중...' : '✨ AI로 과업 생성'}
                             </span>
                           </button>
                         </>
@@ -1030,45 +1062,8 @@ function App() {
                 </div>
 
                 <div>
-                  <button
-                    onClick={() => toggleExpand(index)}
-                    style={{
-                      width: '100%',
-                      padding: '0.875rem 1.25rem',
-                      background: 'rgba(30, 41, 59, 0.5)',
-                      border: '1px solid rgba(71, 85, 105, 0.5)',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: 600,
-                      color: '#cbd5e1',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      backdropFilter: 'blur(10px)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(51, 65, 85, 0.5)'
-                      e.currentTarget.style.borderColor = 'rgba(96, 165, 250, 0.5)'
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)'
-                      e.currentTarget.style.borderColor = 'rgba(71, 85, 105, 0.5)'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }}
-                  >
-                    <span>상세 정보 {expandedCards.has(index) ? '숨기기' : '보기'}</span>
-                    <span style={{
-                      fontSize: '0.875rem',
-                      transition: 'transform 0.3s',
-                      transform: expandedCards.has(index) ? 'rotate(180deg)' : 'rotate(0deg)',
-                      display: 'inline-block'
-                    }}>▼</span>
-                  </button>
-
-                  {expandedCards.has(index) && (
+                  {/* 상세 정보는 항상 표시 */}
+                  {true && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
                       {/* 기능 제공 기한 */}
                       {(editingIndex === index || req.deadline) && (
@@ -1348,7 +1343,7 @@ function App() {
                             pointerEvents: 'none'
                           }} />
                           <span style={{ position: 'relative', zIndex: 1 }}>
-                            🤖 {generationStatus.get(index) || 'AI 분석 중...'}
+                            ✨ {generationStatus.get(index) || 'AI 분석 중...'}
                           </span>
                         </div>
                       </div>
@@ -1387,7 +1382,7 @@ function App() {
                           pointerEvents: 'none'
                         }} />
                         <span style={{ position: 'relative', zIndex: 1 }}>
-                          🤖 {generationStatus.get(index) || 'AI 분석 중...'}
+                          ✨ {generationStatus.get(index) || 'AI 분석 중...'}
                         </span>
                       </div>
                     ) : (
@@ -1429,8 +1424,8 @@ function App() {
                       }} />
                       <span style={{ position: 'relative', zIndex: 1 }}>
                         {collapsedTaskViews.has(index)
-                          ? `📋 ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 열기)`
-                          : `📋 ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 닫기)`
+                          ? `✨ ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 열기)`
+                          : `✨ ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 닫기)`
                         }
                       </span>
                     </div>
@@ -1586,52 +1581,50 @@ function App() {
                         </div>
 
                         {/* 생성 모델 정보 */}
-                        {task.generatedBy && (
-                          <div style={{
-                            marginTop: '0.75rem',
-                            padding: '0.4rem 0.75rem',
-                            background: 'rgba(139, 92, 246, 0.08)',
-                            border: '1px solid rgba(139, 92, 246, 0.25)',
-                            borderRadius: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '0.5rem'
-                          }}>
+                        <div style={{
+                          marginTop: '0.75rem',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          {task.generatedBy && (
                             <div style={{
+                              padding: '0.3rem 0.6rem',
+                              background: 'rgba(139, 92, 246, 0.08)',
+                              border: '1px solid rgba(139, 92, 246, 0.25)',
+                              borderRadius: '6px',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '0.5rem'
+                              gap: '0.4rem'
                             }}>
-                              <div style={{
-                                fontSize: '0.85rem'
-                              }}>🤖</div>
-                              <div style={{
+                              <span style={{ fontSize: '0.75rem' }}>✨</span>
+                              <span style={{
                                 fontSize: '0.7rem',
-                                color: '#94a3b8',
-                                fontWeight: 500
+                                color: '#a78bfa',
+                                fontWeight: 600
                               }}>
                                 {task.generatedBy}
-                              </div>
+                              </span>
                             </div>
-                            {task.createdAt && (
-                              <div style={{
-                                fontSize: '0.65rem',
-                                color: '#64748b',
-                                fontWeight: 500
-                              }}>
-                                {new Date(task.createdAt).toLocaleString('ko-KR', {
-                                  year: 'numeric',
-                                  month: '2-digit',
-                                  day: '2-digit',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  second: '2-digit'
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          )}
+                          {task.createdAt && (
+                            <div style={{
+                              fontSize: '0.65rem',
+                              color: '#64748b',
+                              fontWeight: 500
+                            }}>
+                              {new Date(task.createdAt).toLocaleString('ko-KR', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                     </>

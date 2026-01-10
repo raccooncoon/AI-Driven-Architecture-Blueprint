@@ -15,7 +15,11 @@ import java.time.LocalDateTime;
 public class Task {
 
     @Id
-    private String id;  // REQ-AI-BA-0001-TASK-001
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String uuid;  // PK: 고유 식별자 (UUID)
+
+    @Column(nullable = false)
+    private String taskId;  // 비즈니스 ID: REQ-AI-BA-0001-TASK-001 (중복 가능)
 
     @Column(nullable = false)
     private String parentRequirementId;  // REQ-AI-BA-0001

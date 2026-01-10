@@ -13,7 +13,7 @@ import java.util.Optional;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, String> {
     // 삭제되지 않은 과업만 조회
-    List<Task> findByParentRequirementIdAndDeletedFalseOrderByIdAsc(String parentRequirementId);
+    List<Task> findByParentRequirementIdAndDeletedFalseOrderByCreatedAtAsc(String parentRequirementId);
 
     // 삭제되지 않은 과업 존재 여부
     boolean existsByParentRequirementIdAndDeletedFalse(String parentRequirementId);
@@ -21,8 +21,11 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     // 삭제되지 않은 과업 개수
     long countByParentRequirementIdAndDeletedFalse(String parentRequirementId);
 
-    // 삭제되지 않은 과업 조회 (ID로)
-    Optional<Task> findByIdAndDeletedFalse(String id);
+    // 삭제되지 않은 과업 조회 (taskId로)
+    Optional<Task> findByTaskIdAndDeletedFalse(String taskId);
+
+    // 삭제되지 않은 과업 조회 (uuid로)
+    Optional<Task> findByUuidAndDeletedFalse(String uuid);
 
     // 소프트 삭제 (요구사항별)
     @Modifying
@@ -30,11 +33,17 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.parentRequirementId = :parentRequirementId AND t.deleted = false")
     int softDeleteByParentRequirementId(String parentRequirementId, LocalDateTime deletedAt);
 
-    // 소프트 삭제 (개별)
+    // 소프트 삭제 (개별 - taskId 기준)
     @Modifying
     @Transactional
-    @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.id = :id AND t.deleted = false")
-    int softDeleteById(String id, LocalDateTime deletedAt);
+    @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.taskId = :taskId AND t.deleted = false")
+    int softDeleteByTaskId(String taskId, LocalDateTime deletedAt);
+
+    // 소프트 삭제 (개별 - uuid 기준)
+    @Modifying
+    @Transactional
+    @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.uuid = :uuid AND t.deleted = false")
+    int softDeleteByUuid(String uuid, LocalDateTime deletedAt);
 
     // 실제 삭제 (기존 호환성 유지)
     @Modifying

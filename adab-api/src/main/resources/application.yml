@@ -2,7 +2,8 @@ spring:
   application:
     name: adab-api
   autoconfigure:
-    exclude: org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
   datasource:
     url: jdbc:postgresql://localhost:5432/adab_db
     username: user
@@ -16,17 +17,12 @@ spring:
         format_sql: true
   ai:
     ollama:
-      base-url: http://min-sff:11434
+      base-url: http://localhost:11434
       chat:
         enabled: true
         options:
           model: gemma3:12b
-    openai:
-      enabled: false
-      api-key: ${OPENAI_API_KEY:dummy}
-      chat:
-        options:
-          model: gpt-4o
+          temperature: 0.7
 
 springdoc:
   api-docs:

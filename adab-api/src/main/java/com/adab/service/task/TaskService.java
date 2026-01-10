@@ -42,7 +42,7 @@ public class TaskService {
      * 요구사항 ID로 모든 과업 조회 (삭제되지 않은 것만)
      */
     public TaskListResponse getTasksByRequirementId(String requirementId) {
-        List<Task> tasks = taskRepository.findByParentRequirementIdAndDeletedFalseOrderByIdAsc(requirementId);
+        List<Task> tasks = taskRepository.findByParentRequirementIdAndDeletedFalseOrderByCreatedAtAsc(requirementId);
 
         List<TaskResponse> taskResponses = tasks.stream()
                 .map(this::convertToResponse)
@@ -59,7 +59,7 @@ public class TaskService {
      * Task ID로 특정 과업 조회 (삭제되지 않은 것만)
      */
     public ApiResponse<TaskResponse> getTaskById(String taskId) {
-        return taskRepository.findByIdAndDeletedFalse(taskId)
+        return taskRepository.findByTaskIdAndDeletedFalse(taskId)
                 .map(task -> ApiResponse.<TaskResponse>builder()
                         .success(true)
                         .data(convertToResponse(task))
@@ -76,7 +76,7 @@ public class TaskService {
      */
     @Transactional
     public ApiResponse<TaskResponse> updateTask(String taskId, TaskUpdateRequest request) {
-        return taskRepository.findByIdAndDeletedFalse(taskId)
+        return taskRepository.findByTaskIdAndDeletedFalse(taskId)
                 .map(task -> {
                     if (request.getSummary() != null) {
                         task.setSummary(request.getSummary());
@@ -98,7 +98,7 @@ public class TaskService {
                     }
 
                     Task updatedTask = taskRepository.save(task);
-                    
+
                     return ApiResponse.<TaskResponse>builder()
                             .success(true)
                             .data(convertToResponse(updatedTask))
@@ -116,7 +116,7 @@ public class TaskService {
      */
     @Transactional
     public DeleteResponse deleteTask(String taskId) {
-        int deletedCount = taskRepository.softDeleteById(taskId, LocalDateTime.now());
+        int deletedCount = taskRepository.softDeleteByTaskId(taskId, LocalDateTime.now());
 
         if (deletedCount > 0) {
             return DeleteResponse.builder()
@@ -168,7 +168,7 @@ public class TaskService {
      */
     private TaskResponse convertToResponse(Task task) {
         return TaskResponse.builder()
-                .id(task.getId())
+                .id(task.getTaskId())  // uuid 대신 taskId 사용
                 .parentRequirementId(task.getParentRequirementId())
                 .parentIndex(task.getParentIndex())
                 .summary(task.getSummary())

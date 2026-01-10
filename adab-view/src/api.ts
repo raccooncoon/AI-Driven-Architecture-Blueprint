@@ -48,6 +48,44 @@ export type TaskCard = {
   updatedAt?: string;
 }
 
+export type ModelConfig = {
+  id?: number;
+  name: string;
+  enabled?: boolean;
+  isDefault?: boolean;
+  modelName?: string;
+  apiKey?: string;
+  baseUrl?: string;
+  temperature?: string;
+  maxTokens?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// 모델 설정 조회
+export const getModelConfigs = async (): Promise<ModelConfig[]> => {
+  const response = await api.get('/model-configs');
+  return response.data;
+};
+
+// 모델 설정 업데이트
+export const updateModelConfig = async (name: string, data: Partial<ModelConfig>) => {
+  const response = await api.put(`/model-configs/${name}`, data);
+  return response.data;
+};
+
+// 기본 모델 설정 조회
+export const getDefaultModelConfig = async (): Promise<ModelConfig> => {
+  const response = await api.get('/model-configs/default');
+  return response.data;
+};
+
+// 현재 사용 중인 모델 이름 조회
+export const getCurrentModelName = async (): Promise<string> => {
+  const response = await api.get('/model-configs/current');
+  return response.data.modelName;
+};
+
 // 과업 존재 여부 확인
 export const checkTasksExist = async (requirementId: string): Promise<{ exists: boolean; count: number }> => {
   const response = await api.get(`/tasks/requirement/${requirementId}/exists`);
@@ -89,6 +127,7 @@ export const generateTasksWithBackend = async (
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let currentEventType = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -102,7 +141,7 @@ export const generateTasksWithBackend = async (
         if (line.trim() === '') continue;
 
         if (line.startsWith('event:')) {
-          const eventType = line.substring(6).trim();
+          currentEventType = line.substring(6).trim();
           continue;
         }
 
@@ -113,16 +152,29 @@ export const generateTasksWithBackend = async (
             const parsed = JSON.parse(data);
 
             // status 이벤트
-            if (parsed.message && !parsed.id) {
+            if (currentEventType === 'status' || (parsed.message && !parsed.id)) {
               onStatus(parsed.message);
             }
             // task 이벤트
-            else if (parsed.id) {
+            else if (currentEventType === 'task' || parsed.id) {
               onTask(parsed as TaskCard);
             }
-          } catch (e) {
+            // complete 이벤트
+            else if (currentEventType === 'complete') {
+              onStatus(parsed.message);
+            }
+            // error 이벤트
+            else if (currentEventType === 'error') {
+              throw new Error(parsed.message || '과업 생성 중 오류 발생');
+            }
+          } catch (e: any) {
+            if (e.message && e.message !== 'SSE 파싱 에러') {
+              throw e;
+            }
             console.error('SSE 파싱 에러:', e);
           }
+
+          currentEventType = '';
         }
       }
     }
