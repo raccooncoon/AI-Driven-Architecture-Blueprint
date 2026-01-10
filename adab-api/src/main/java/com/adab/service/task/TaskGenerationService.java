@@ -81,11 +81,10 @@ public class TaskGenerationService {
                 return;
             }
 
-            // 6. 기존 Task 삭제 (중복 방지)
-            List<Task> existingTasks = taskRepository.findByParentRequirementIdOrderByIdAsc(request.getRequirementId());
-            if (!existingTasks.isEmpty()) {
-                taskRepository.deleteAll(existingTasks);
-                log.info("Deleted {} existing tasks for requirement: {}", existingTasks.size(), request.getRequirementId());
+            // 6. 기존 Task 소프트 삭제 (중복 방지)
+            int deletedCount = taskRepository.softDeleteByParentRequirementId(request.getRequirementId(), java.time.LocalDateTime.now());
+            if (deletedCount > 0) {
+                log.info("Soft deleted {} existing tasks for requirement: {}", deletedCount, request.getRequirementId());
             }
 
             // 7. Task 생성 및 전송

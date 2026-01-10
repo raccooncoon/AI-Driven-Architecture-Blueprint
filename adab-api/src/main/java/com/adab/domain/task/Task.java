@@ -37,6 +37,11 @@ public class Task {
     @Column(length = 100)
     private String generatedBy;  // 데이터 생성에 사용된 LLM 모델명
 
+    @Column(nullable = false)
+    private Boolean deleted = false;  // 소프트 삭제 플래그
+
+    private LocalDateTime deletedAt;  // 삭제 시간
+
     @CreatedDate
     private LocalDateTime createdAt;
 

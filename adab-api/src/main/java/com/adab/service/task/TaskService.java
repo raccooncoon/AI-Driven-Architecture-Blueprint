@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,10 +20,12 @@ public class TaskService {
     private final TaskRepository taskRepository;
 
     /**
-     * 모든 과업 조회
+     * 모든 과업 조회 (삭제되지 않은 것만)
      */
     public TaskListResponse getAllTasks() {
-        List<Task> tasks = taskRepository.findAll();
+        List<Task> tasks = taskRepository.findAll().stream()
+                .filter(task -> !task.getDeleted())
+                .collect(Collectors.toList());
 
         List<TaskResponse> taskResponses = tasks.stream()
                 .map(this::convertToResponse)
@@ -36,11 +39,11 @@ public class TaskService {
     }
 
     /**
-     * 요구사항 ID로 모든 과업 조회
+     * 요구사항 ID로 모든 과업 조회 (삭제되지 않은 것만)
      */
     public TaskListResponse getTasksByRequirementId(String requirementId) {
-        List<Task> tasks = taskRepository.findByParentRequirementIdOrderByIdAsc(requirementId);
-        
+        List<Task> tasks = taskRepository.findByParentRequirementIdAndDeletedFalseOrderByIdAsc(requirementId);
+
         List<TaskResponse> taskResponses = tasks.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
@@ -53,10 +56,10 @@ public class TaskService {
     }
 
     /**
-     * Task ID로 특정 과업 조회
+     * Task ID로 특정 과업 조회 (삭제되지 않은 것만)
      */
     public ApiResponse<TaskResponse> getTaskById(String taskId) {
-        return taskRepository.findById(taskId)
+        return taskRepository.findByIdAndDeletedFalse(taskId)
                 .map(task -> ApiResponse.<TaskResponse>builder()
                         .success(true)
                         .data(convertToResponse(task))
@@ -69,11 +72,11 @@ public class TaskService {
     }
 
     /**
-     * 과업 수정
+     * 과업 수정 (삭제되지 않은 것만)
      */
     @Transactional
     public ApiResponse<TaskResponse> updateTask(String taskId, TaskUpdateRequest request) {
-        return taskRepository.findById(taskId)
+        return taskRepository.findByIdAndDeletedFalse(taskId)
                 .map(task -> {
                     if (request.getSummary() != null) {
                         task.setSummary(request.getSummary());
@@ -109,49 +112,49 @@ public class TaskService {
     }
 
     /**
-     * 특정 과업 삭제
+     * 특정 과업 소프트 삭제
      */
     @Transactional
     public DeleteResponse deleteTask(String taskId) {
-        if (taskRepository.existsById(taskId)) {
-            taskRepository.deleteById(taskId);
+        int deletedCount = taskRepository.softDeleteById(taskId, LocalDateTime.now());
+
+        if (deletedCount > 0) {
             return DeleteResponse.builder()
                     .success(true)
-                    .message("Task deleted successfully")
+                    .message("Task soft deleted successfully")
                     .taskId(taskId)
                     .build();
         } else {
             return DeleteResponse.builder()
                     .success(false)
-                    .message("Task not found")
+                    .message("Task not found or already deleted")
                     .taskId(taskId)
                     .build();
         }
     }
 
     /**
-     * 요구사항 ID로 모든 과업 일괄 삭제
+     * 요구사항 ID로 모든 과업 일괄 소프트 삭제
      */
     @Transactional
     public DeleteResponse deleteTasksByRequirementId(String requirementId) {
-        long count = taskRepository.countByParentRequirementId(requirementId);
-        taskRepository.deleteByParentRequirementId(requirementId);
-        
+        int deletedCount = taskRepository.softDeleteByParentRequirementId(requirementId, LocalDateTime.now());
+
         return DeleteResponse.builder()
                 .success(true)
-                .message("All tasks deleted successfully")
+                .message("All tasks soft deleted successfully")
                 .requirementId(requirementId)
-                .deletedCount((int) count)
+                .deletedCount(deletedCount)
                 .build();
     }
 
     /**
-     * 요구사항 ID로 과업 존재 여부 확인
+     * 요구사항 ID로 과업 존재 여부 확인 (삭제되지 않은 것만)
      */
     public ExistsResponse checkTasksExist(String requirementId) {
-        boolean exists = taskRepository.existsByParentRequirementId(requirementId);
-        long count = taskRepository.countByParentRequirementId(requirementId);
-        
+        boolean exists = taskRepository.existsByParentRequirementIdAndDeletedFalse(requirementId);
+        long count = taskRepository.countByParentRequirementIdAndDeletedFalse(requirementId);
+
         return ExistsResponse.builder()
                 .success(true)
                 .exists(exists)
@@ -174,6 +177,7 @@ public class TaskService {
                 .detailFunctionId(task.getDetailFunctionId())
                 .detailFunction(task.getDetailFunction())
                 .subFunction(task.getSubFunction())
+                .generatedBy(task.getGeneratedBy())
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .build();
