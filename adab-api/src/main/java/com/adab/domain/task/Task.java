@@ -2,40 +2,41 @@ package com.adab.domain.task;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tasks")
 @Data
+@EntityListeners(AuditingEntityListener.class)
 public class Task {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(unique = true, nullable = false)
-    private String taskId;
+    private String id;  // REQ-AI-BA-0001-TASK-001
 
     @Column(nullable = false)
-    private String parentRequirementId;
+    private String parentRequirementId;  // REQ-AI-BA-0001
 
     @Column(nullable = false)
-    private Integer parentIndex;
+    private Integer parentIndex;  // 0
 
-    @Column(nullable = false, length = 1000)
+    @Column(length = 1000)
     private String summary;
 
-    @Column(nullable = false)
-    private String majorCategoryId;
+    private String majorCategoryId;  // CAT-001
+    private String majorCategory;    // AI 모델 개발
+    private String detailFunctionId; // FUNC-001
+    private String detailFunction;   // LLM 모델 구축
 
-    @Column(nullable = false)
-    private String majorCategory;
-
-    @Column(nullable = false)
-    private String detailFunctionId;
-
-    @Column(nullable = false)
-    private String detailFunction;
-
-    @Column(nullable = false, length = 1000)
+    @Column(length = 2000)
     private String subFunction;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
 }

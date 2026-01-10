@@ -58,7 +58,7 @@ public class TaskGenerationService {
             }
 
             // 6. 기존 Task 삭제 (중복 방지)
-            List<Task> existingTasks = taskRepository.findByParentRequirementId(request.getRequirementId());
+            List<Task> existingTasks = taskRepository.findByParentRequirementIdOrderByIdAsc(request.getRequirementId());
             if (!existingTasks.isEmpty()) {
                 taskRepository.deleteAll(existingTasks);
                 log.info("Deleted {} existing tasks for requirement: {}", existingTasks.size(), request.getRequirementId());
@@ -74,7 +74,7 @@ public class TaskGenerationService {
 
                 // Task 엔티티 생성 및 저장
                 Task task = new Task();
-                task.setTaskId(taskId);
+                task.setId(taskId);  // taskId -> id로 변경
                 task.setParentRequirementId(request.getRequirementId());
                 task.setParentIndex(request.getIndex());
                 task.setSummary(taskData.get("summary"));
@@ -84,19 +84,21 @@ public class TaskGenerationService {
                 task.setDetailFunction(taskData.get("detailFunction"));
                 task.setSubFunction(taskData.get("subFunction"));
 
-                taskRepository.save(task);
+                Task savedTask = taskRepository.save(task);
 
                 // TaskResponse 생성 및 전송
                 TaskResponse taskResponse = TaskResponse.builder()
                         .id(taskId)
                         .parentRequirementId(request.getRequirementId())
                         .parentIndex(request.getIndex())
-                        .summary(task.getSummary())
-                        .majorCategoryId(task.getMajorCategoryId())
-                        .majorCategory(task.getMajorCategory())
-                        .detailFunctionId(task.getDetailFunctionId())
-                        .detailFunction(task.getDetailFunction())
-                        .subFunction(task.getSubFunction())
+                        .summary(savedTask.getSummary())
+                        .majorCategoryId(savedTask.getMajorCategoryId())
+                        .majorCategory(savedTask.getMajorCategory())
+                        .detailFunctionId(savedTask.getDetailFunctionId())
+                        .detailFunction(savedTask.getDetailFunction())
+                        .subFunction(savedTask.getSubFunction())
+                        .createdAt(savedTask.getCreatedAt())
+                        .updatedAt(savedTask.getUpdatedAt())
                         .build();
 
                 sendTask(emitter, taskResponse);

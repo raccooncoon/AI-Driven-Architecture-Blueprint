@@ -9,6 +9,18 @@ export const getRequirements = async () => {
     return response.data;
 };
 
+// RFP 샘플 데이터 일괄 업로드
+export const uploadRequirementsBatch = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/requirements/batch', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return response.data;
+};
+
 export type TaskCard = {
   id: string;
   parentRequirementId: string;

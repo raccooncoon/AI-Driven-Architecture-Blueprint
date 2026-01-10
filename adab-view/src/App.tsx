@@ -1,8 +1,7 @@
 import './App.css'
-import rfpData from './sample/rfp_sample.json'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as React from 'react'
-import { generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
+import { getRequirements, uploadRequirementsBatch, generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
 
 interface Requirement {
   rfpId: string
@@ -12,13 +11,16 @@ interface Requirement {
   requestContent: string
   deadline: string
   implementationOpinion: string
-  businessDevelopment: string
   pobaOpinion: string
   techInnovationOpinion: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 function App() {
-  const requirements: Requirement[] = rfpData
+  const [requirements, setRequirements] = useState<Requirement[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set())
   const [cardWidth, setCardWidth] = useState(1000)
   const [leftColumnWidth, setLeftColumnWidth] = useState(250)
@@ -30,6 +32,53 @@ function App() {
   const [autoCollapsedLeft, setAutoCollapsedLeft] = useState(false)
   const [generatingTasks, setGeneratingTasks] = useState<Set<number>>(new Set())
   const [generationStatus, setGenerationStatus] = useState<Map<number, string>>(new Map())
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 백엔드에서 요구사항 데이터 가져오기
+  useEffect(() => {
+    const fetchRequirements = async () => {
+      try {
+        setLoading(true)
+        const data = await getRequirements()
+        setRequirements(data)
+        setError(null)
+      } catch (err) {
+        console.error('요구사항 로딩 실패:', err)
+        setError('요구사항을 불러오는데 실패했습니다.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRequirements()
+  }, [])
+
+  // 파일 업로드 핸들러
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploading(true)
+      const result = await uploadRequirementsBatch(file)
+      alert(`✅ ${result.message || '업로드 성공!'}\n${result.count}건의 요구사항이 저장되었습니다.`)
+
+      // 데이터 새로고침
+      const data = await getRequirements()
+      setRequirements(data)
+      setError(null)
+    } catch (err: any) {
+      console.error('파일 업로드 실패:', err)
+      alert(`❌ 업로드 실패: ${err.response?.data?.message || err.message}`)
+    } finally {
+      setUploading(false)
+      // 파일 입력 초기화
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   const toggleExpand = (index: number) => {
     setExpandedCards(prev => {
@@ -136,19 +185,22 @@ function App() {
       if (existsResult.exists && existsResult.count > 0) {
         const confirmed = window.confirm(
           `해당 요구사항(${req.requirementId})에 이미 ${existsResult.count}개의 과업이 존재합니다.\n` +
-          `기존 과업을 삭제하고 새로 생성하시겠습니까?\n\n` +
+          `기존 과업을 모두 삭제하고 새로 생성하시겠습니까?\n\n` +
           `- 확인: 기존 과업 삭제 후 새로 생성\n` +
-          `- 취소: 기존 과업 유지하고 추가 생성`
+          `- 취소: 생성 취소`
         )
 
-        if (confirmed) {
-          // 기존 과업 삭제
-          const deleteResult = await deleteTasksByRequirement(req.requirementId)
-          console.log(`${deleteResult.deletedCount}개의 과업이 삭제되었습니다.`)
-
-          // 화면에서도 제거
-          setTaskCards(prev => prev.filter(t => t.parentRequirementId !== req.requirementId))
+        if (!confirmed) {
+          // 생성 취소
+          return
         }
+
+        // 기존 과업 삭제
+        const deleteResult = await deleteTasksByRequirement(req.requirementId)
+        console.log(`${deleteResult.deletedCount}개의 과업이 삭제되었습니다.`)
+
+        // 화면에서도 제거
+        setTaskCards(prev => prev.filter(t => t.parentRequirementId !== req.requirementId))
       }
     } catch (error) {
       console.error('과업 확인/삭제 오류:', error)
@@ -204,6 +256,64 @@ function App() {
           })
         }, 3000)
       }
+    )
+  }
+
+  // 로딩 상태
+  if (loading) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+          color: 'white',
+          padding: '3rem 4rem',
+          borderRadius: '16px',
+          fontSize: '1.2rem',
+          fontWeight: 600,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+          textAlign: 'center'
+        }}>
+          <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>⚙️</div>
+          <div>요구사항을 불러오는 중...</div>
+        </div>
+      </div>
+    )
+  }
+
+  // 에러 상태
+  if (error) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)',
+          color: 'white',
+          padding: '3rem 4rem',
+          borderRadius: '16px',
+          fontSize: '1.2rem',
+          fontWeight: 600,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+          textAlign: 'center'
+        }}>
+          <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>❌</div>
+          <div>{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '1.5rem',
+              padding: '0.75rem 1.5rem',
+              background: 'white',
+              color: '#991b1b',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 600
+            }}
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
     )
   }
 
@@ -284,8 +394,88 @@ function App() {
         overflowY: 'auto',
         backgroundColor: '#1e293b'
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          {requirements.map((req, index) => {
+        {requirements.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            flexDirection: 'column',
+            gap: '2rem'
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+              color: 'white',
+              padding: '3rem 4rem',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+              textAlign: 'center',
+              maxWidth: '600px'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>
+                등록된 요구사항이 없습니다
+              </div>
+              <div style={{ fontSize: '1rem', color: '#94a3b8', marginBottom: '2rem' }}>
+                RFP 샘플 데이터를 업로드하여 시작하세요
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{
+                  padding: '1rem 2rem',
+                  background: uploading
+                    ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                    : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                  transition: 'all 0.3s',
+                  opacity: uploading ? 0.7 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!uploading) {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.5)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!uploading) {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+                  }
+                }}
+              >
+                {uploading ? '⚙️ 업로드 중...' : '📤 JSON 파일 업로드'}
+              </button>
+
+              <div style={{
+                marginTop: '2rem',
+                fontSize: '0.85rem',
+                color: '#64748b',
+                lineHeight: '1.6'
+              }}>
+                <div>💡 rfp_sample.json 형식의 파일을 선택하세요</div>
+                <div>일괄 업로드 API: POST /api/requirements/batch</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            {requirements.map((req, index) => {
             const relatedTasks = taskCards.filter(t => t.parentIndex === index)
             const hasAnyTaskCards = taskCards.length > 0
 
@@ -297,7 +487,8 @@ function App() {
                   display: 'flex',
                   gap: 0,
                   alignItems: 'stretch',
-                  position: 'relative'
+                  position: 'relative',
+                  justifyContent: hasAnyTaskCards ? 'flex-start' : 'center'
                 }}
               >
                 <div
@@ -434,6 +625,14 @@ function App() {
                         background: 'linear-gradient(90deg, #60a5fa 0%, transparent 100%)'
                       }} />
                       제안요청내용
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: '#94a3b8',
+                        fontWeight: 500,
+                        marginLeft: '0.5rem'
+                      }}>
+                        [{req.requirementId}]
+                      </span>
                     </div>
                     <button
                       id={`btn-${index}`}
@@ -699,7 +898,44 @@ function App() {
                     </div>
 
                     {/* 과업 영역 */}
-                    {(relatedTasks.length > 0 || generatingTasks.has(index)) && (
+                    {generatingTasks.has(index) && relatedTasks.length === 0 ? (
+                      <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2rem'
+                      }}>
+                        <div style={{
+                          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                          color: 'white',
+                          padding: '2rem 3rem',
+                          borderRadius: '16px',
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.2)',
+                          textAlign: 'center',
+                          letterSpacing: '0.3px',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          minWidth: '500px'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.1) 50%, transparent 100%)',
+                            animation: 'shimmer 2s infinite',
+                            pointerEvents: 'none'
+                          }} />
+                          <span style={{ position: 'relative', zIndex: 1 }}>
+                            🤖 {generationStatus.get(index) || 'AI 분석 중...'}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (relatedTasks.length > 0 || generatingTasks.has(index)) && (
                     <div style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -847,6 +1083,40 @@ function App() {
                           </div>
                         </div>
 
+                        <div style={{ marginBottom: '1rem' }}>
+                          <div style={{
+                            fontSize: '0.75rem',
+                            color: '#94a3b8',
+                            marginBottom: '0.75rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}>
+                            <span style={{
+                              display: 'inline-block',
+                              width: '3px',
+                              height: '14px',
+                              background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                              borderRadius: '2px'
+                            }} />
+                            과업 내용 요약
+                          </div>
+                          <div style={{
+                            fontSize: '0.95rem',
+                            color: '#cbd5e1',
+                            padding: '1rem 1.25rem',
+                            backgroundColor: '#1e293b',
+                            borderRadius: '8px',
+                            border: '2px solid #334155',
+                            lineHeight: '1.7',
+                            fontWeight: 500
+                          }}>
+                            {task.summary}
+                          </div>
+                        </div>
+
                         <div style={{
                           backgroundColor: '#1e293b',
                           borderRadius: '8px',
@@ -883,7 +1153,6 @@ function App() {
                         </div>
 
                         <div style={{
-                          marginBottom: '1rem',
                           backgroundColor: '#0f172a',
                           padding: '0.75rem 1rem',
                           borderRadius: '8px',
@@ -894,40 +1163,6 @@ function App() {
                           </div>
                           <div style={{ fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 500, lineHeight: '1.5' }}>
                             {task.subFunction}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div style={{
-                            fontSize: '0.75rem',
-                            color: '#94a3b8',
-                            marginBottom: '0.75rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}>
-                            <span style={{
-                              display: 'inline-block',
-                              width: '3px',
-                              height: '14px',
-                              background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
-                              borderRadius: '2px'
-                            }} />
-                            과업 내용 요약
-                          </div>
-                          <div style={{
-                            fontSize: '0.95rem',
-                            color: '#cbd5e1',
-                            padding: '1rem 1.25rem',
-                            backgroundColor: '#1e293b',
-                            borderRadius: '8px',
-                            border: '2px solid #334155',
-                            lineHeight: '1.7',
-                            fontWeight: 500
-                          }}>
-                            {task.summary}
                           </div>
                         </div>
                       </div>
@@ -944,7 +1179,8 @@ function App() {
               </div>
             )
           })}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   )

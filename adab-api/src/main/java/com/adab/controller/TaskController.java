@@ -1,10 +1,12 @@
 package com.adab.controller;
 
-import com.adab.dto.TaskGenerationRequest;
+import com.adab.dto.*;
 import com.adab.service.task.TaskGenerationService;
+import com.adab.service.task.TaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -19,8 +21,10 @@ import java.util.concurrent.Executors;
 public class TaskController {
 
     private final TaskGenerationService taskGenerationService;
+    private final TaskService taskService;
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
+    // 1. 과업 생성 (SSE)
     @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateTasks(@RequestBody TaskGenerationRequest request) {
         log.info("Received task generation request for requirement: {}", request.getRequirementId());
@@ -35,5 +39,49 @@ public class TaskController {
         executor.execute(() -> taskGenerationService.generateTasksWithStreaming(request, emitter));
 
         return emitter;
+    }
+
+    // 2. 과업 목록 조회
+    @GetMapping
+    public ResponseEntity<TaskListResponse> getTasks(@RequestParam String requirementId) {
+        log.info("Getting tasks for requirement: {}", requirementId);
+        return ResponseEntity.ok(taskService.getTasksByRequirementId(requirementId));
+    }
+
+    // 3. 과업 상세 조회
+    @GetMapping("/{taskId}")
+    public ResponseEntity<ApiResponse<TaskResponse>> getTask(@PathVariable String taskId) {
+        log.info("Getting task: {}", taskId);
+        return ResponseEntity.ok(taskService.getTaskById(taskId));
+    }
+
+    // 4. 과업 수정
+    @PutMapping("/{taskId}")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
+            @PathVariable String taskId,
+            @RequestBody TaskUpdateRequest request) {
+        log.info("Updating task: {}", taskId);
+        return ResponseEntity.ok(taskService.updateTask(taskId, request));
+    }
+
+    // 5. 과업 삭제
+    @DeleteMapping("/{taskId}")
+    public ResponseEntity<DeleteResponse> deleteTask(@PathVariable String taskId) {
+        log.info("Deleting task: {}", taskId);
+        return ResponseEntity.ok(taskService.deleteTask(taskId));
+    }
+
+    // 6. 요구사항별 과업 일괄 삭제
+    @DeleteMapping("/requirement/{requirementId}")
+    public ResponseEntity<DeleteResponse> deleteTasksByRequirement(@PathVariable String requirementId) {
+        log.info("Deleting all tasks for requirement: {}", requirementId);
+        return ResponseEntity.ok(taskService.deleteTasksByRequirementId(requirementId));
+    }
+
+    // 7. 과업 존재 여부 확인
+    @GetMapping("/requirement/{requirementId}/exists")
+    public ResponseEntity<ExistsResponse> checkTasksExist(@PathVariable String requirementId) {
+        log.info("Checking tasks existence for requirement: {}", requirementId);
+        return ResponseEntity.ok(taskService.checkTasksExist(requirementId));
     }
 }

@@ -1,3 +1,24 @@
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    border-radius: 10px;
+    border: 2px solid rgba(15, 23, 42, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
 .app-container {
     width: 100%;
     margin: 0 auto;

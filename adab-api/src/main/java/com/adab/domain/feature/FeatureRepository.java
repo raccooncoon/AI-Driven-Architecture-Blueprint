@@ -7,5 +7,5 @@ import java.util.List;
 
 @Repository
 public interface FeatureRepository extends JpaRepository<Feature, Long> {
-    List<Feature> findByRequirementId(Long requirementId);
+    List<Feature> findByRequirement_RequirementId(String requirementId);
 }

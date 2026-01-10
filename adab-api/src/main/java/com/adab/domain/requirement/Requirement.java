@@ -1,39 +1,67 @@
 package com.adab.domain.requirement;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "requirements")
 @Getter
-@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Requirement {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "requirement_id", nullable = false)
+    private String requirementId;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String rawText;
+    @Column(name = "rfp_id")
+    private String rfpId;
 
-    private String categoryId;
+    @Column(name = "name")
+    private String name;
 
-    private String summary;
+    @Column(name = "definition")
+    private String definition;
 
-    @Column(columnDefinition = "TEXT")
-    private String detail;
+    @Column(name = "request_content", columnDefinition = "TEXT")
+    private String requestContent;
 
-    private String priority;
+    @Column(name = "deadline")
+    private String deadline;
 
-    // Defines the relationship to features if needed, but keeping it decoupled or
-    // simple for now is also fine.
-    // Based on requirement: 1:N (Features)
-    // We can map it here or just foreign key in Feature. Let's start with just ID
-    // here for simplicity unless bidirectional is needed.
+    @Column(name = "implementation_opinion", columnDefinition = "TEXT")
+    private String implementationOpinion;
+
+    @Column(name = "poba_opinion", columnDefinition = "TEXT")
+    private String pobaOpinion;
+
+    @Column(name = "tech_innovation_opinion", columnDefinition = "TEXT")
+    private String techInnovationOpinion;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    public void update(Requirement updated) {
+        this.rfpId = updated.rfpId;
+        this.name = updated.name;
+        this.definition = updated.definition;
+        this.requestContent = updated.requestContent;
+        this.deadline = updated.deadline;
+        this.implementationOpinion = updated.implementationOpinion;
+        this.pobaOpinion = updated.pobaOpinion;
+        this.techInnovationOpinion = updated.techInnovationOpinion;
+    }
 }
