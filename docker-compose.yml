@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: adab-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: adab_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - adab-network
+
+  redis:
+    image: redis:alpine
+    container_name: adab-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - adab-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: adab-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - adab-network
+
+networks:
+  adab-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  ollama_data:

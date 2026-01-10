@@ -1,0 +1,35 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Gradle
+.gradle/
+build/
+out/
+bin/
+*.class
+*.log
+*.jar
+*.war
+wrapper/gradle-wrapper.jar
+
+# Spring Boot
+target/
+!mvnw
+!mvnw.cmd
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+
+# Environment Variables
+.env
+.env.*.local

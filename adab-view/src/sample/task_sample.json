@@ -1,0 +1,167 @@
+[
+  {
+    "id": "REQ-AI-BA-0001-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0001",
+    "parentIndex": 0,
+    "summary": "생성형 AI 모델의 기본 아키텍처 설계 및 구현",
+    "majorCategoryId": "CAT-001",
+    "majorCategory": "AI 모델 개발",
+    "detailFunctionId": "FUNC-001",
+    "detailFunction": "LLM 모델 구축",
+    "subFunction": "사전학습 모델 선정 및 파인튜닝 환경 구성"
+  },
+  {
+    "id": "REQ-AI-BA-0001-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0001",
+    "parentIndex": 0,
+    "summary": "프롬프트 엔지니어링 시스템 개발",
+    "majorCategoryId": "CAT-001",
+    "majorCategory": "AI 모델 개발",
+    "detailFunctionId": "FUNC-002",
+    "detailFunction": "프롬프트 최적화",
+    "subFunction": "프롬프트 템플릿 관리 및 버전 관리 시스템 구축"
+  },
+  {
+    "id": "REQ-AI-BA-0001-TASK-003",
+    "parentRequirementId": "REQ-AI-BA-0001",
+    "parentIndex": 0,
+    "summary": "모델 성능 모니터링 및 품질 검증",
+    "majorCategoryId": "CAT-002",
+    "majorCategory": "품질 검증",
+    "detailFunctionId": "FUNC-003",
+    "detailFunction": "성능 테스트",
+    "subFunction": "모델 정확도, 응답 속도, 토큰 사용량 측정 및 분석"
+  },
+  {
+    "id": "REQ-AI-BA-0002-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0002",
+    "parentIndex": 1,
+    "summary": "AI 모델 개념 정의 문서화 시스템 구축",
+    "majorCategoryId": "CAT-003",
+    "majorCategory": "문서화 및 관리",
+    "detailFunctionId": "FUNC-004",
+    "detailFunction": "기술 문서 관리",
+    "subFunction": "모델 개념, 용어 정의, 사용 가이드 문서 자동 생성"
+  },
+  {
+    "id": "REQ-AI-BA-0002-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0002",
+    "parentIndex": 1,
+    "summary": "데이터 허브 연동 인터페이스 개발",
+    "majorCategoryId": "CAT-004",
+    "majorCategory": "시스템 연동",
+    "detailFunctionId": "FUNC-005",
+    "detailFunction": "API 게이트웨이",
+    "subFunction": "데이터 허브와 AI 모델 간 RESTful API 및 gRPC 연동"
+  },
+  {
+    "id": "REQ-AI-BA-0003-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0003",
+    "parentIndex": 2,
+    "summary": "멀티모달 데이터 처리 파이프라인 구축",
+    "majorCategoryId": "CAT-005",
+    "majorCategory": "데이터 처리",
+    "detailFunctionId": "FUNC-006",
+    "detailFunction": "데이터 전처리",
+    "subFunction": "텍스트, 이미지, 음성 데이터 통합 처리 및 정규화"
+  },
+  {
+    "id": "REQ-AI-BA-0003-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0003",
+    "parentIndex": 2,
+    "summary": "벡터 임베딩 생성 및 저장소 구축",
+    "majorCategoryId": "CAT-005",
+    "majorCategory": "데이터 처리",
+    "detailFunctionId": "FUNC-007",
+    "detailFunction": "벡터 데이터베이스",
+    "subFunction": "ChromaDB, Pinecone 등을 활용한 임베딩 저장 및 검색"
+  },
+  {
+    "id": "REQ-AI-BA-0004-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0004",
+    "parentIndex": 3,
+    "summary": "RAG 시스템 아키텍처 설계 및 구현",
+    "majorCategoryId": "CAT-001",
+    "majorCategory": "AI 모델 개발",
+    "detailFunctionId": "FUNC-008",
+    "detailFunction": "검색 증강 생성",
+    "subFunction": "문서 검색 및 컨텍스트 통합 시스템 구축"
+  },
+  {
+    "id": "REQ-AI-BA-0004-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0004",
+    "parentIndex": 3,
+    "summary": "지식 베이스 관리 시스템 개발",
+    "majorCategoryId": "CAT-003",
+    "majorCategory": "문서화 및 관리",
+    "detailFunctionId": "FUNC-009",
+    "detailFunction": "지식 관리",
+    "subFunction": "문서 버전 관리, 메타데이터 관리, 검색 인덱싱"
+  },
+  {
+    "id": "REQ-AI-BA-0005-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0005",
+    "parentIndex": 4,
+    "summary": "AI 모델 보안 및 접근 제어 시스템 구축",
+    "majorCategoryId": "CAT-006",
+    "majorCategory": "보안 및 인증",
+    "detailFunctionId": "FUNC-010",
+    "detailFunction": "인증/인가",
+    "subFunction": "OAuth 2.0, JWT 기반 사용자 인증 및 권한 관리"
+  },
+  {
+    "id": "REQ-AI-BA-0005-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0005",
+    "parentIndex": 4,
+    "summary": "데이터 암호화 및 개인정보 보호 시스템",
+    "majorCategoryId": "CAT-006",
+    "majorCategory": "보안 및 인증",
+    "detailFunctionId": "FUNC-011",
+    "detailFunction": "데이터 보안",
+    "subFunction": "전송 구간 TLS, 저장 데이터 AES-256 암호화, PII 마스킹"
+  },
+  {
+    "id": "REQ-AI-BA-0006-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0006",
+    "parentIndex": 5,
+    "summary": "AI 모델 배포 자동화 파이프라인 구축",
+    "majorCategoryId": "CAT-007",
+    "majorCategory": "DevOps 및 배포",
+    "detailFunctionId": "FUNC-012",
+    "detailFunction": "CI/CD",
+    "subFunction": "GitHub Actions, Jenkins 기반 모델 학습 및 배포 자동화"
+  },
+  {
+    "id": "REQ-AI-BA-0006-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0006",
+    "parentIndex": 5,
+    "summary": "컨테이너 오케스트레이션 환경 구성",
+    "majorCategoryId": "CAT-007",
+    "majorCategory": "DevOps 및 배포",
+    "detailFunctionId": "FUNC-013",
+    "detailFunction": "Kubernetes 관리",
+    "subFunction": "GPU 노드 관리, HPA, 리소스 모니터링 및 로깅"
+  },
+  {
+    "id": "REQ-AI-BA-0007-TASK-001",
+    "parentRequirementId": "REQ-AI-BA-0007",
+    "parentIndex": 6,
+    "summary": "실시간 모니터링 대시보드 개발",
+    "majorCategoryId": "CAT-008",
+    "majorCategory": "모니터링 및 운영",
+    "detailFunctionId": "FUNC-014",
+    "detailFunction": "실시간 모니터링",
+    "subFunction": "Grafana, Prometheus 기반 모델 성능 지표 시각화"
+  },
+  {
+    "id": "REQ-AI-BA-0007-TASK-002",
+    "parentRequirementId": "REQ-AI-BA-0007",
+    "parentIndex": 6,
+    "summary": "알림 및 장애 대응 시스템 구축",
+    "majorCategoryId": "CAT-008",
+    "majorCategory": "모니터링 및 운영",
+    "detailFunctionId": "FUNC-015",
+    "detailFunction": "알림 시스템",
+    "subFunction": "이상 탐지, Slack/Email 알림, 자동 롤백 메커니즘"
+  }
+]

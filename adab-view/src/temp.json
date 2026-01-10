@@ -1,0 +1,44 @@
+[
+  {
+    "rfpId": "SFR-DHUB-008",
+    "requirementId": "REQ-AI-BA-0001",
+    "name": "데이터허브 – 생성형 AI 모델",
+    "definition": "생성형 AI 모델 개념 정의",
+    "requestContent": "○ 프라이빗 클라우드 환경에서 활용 가능한 LLM 모델 제시"
+  },
+  {
+    "rfpId": "SFR-DHUB-008",
+    "requirementId": "REQ-AI-BA-0002",
+    "name": "데이터허브 – 생성형 AI 모델",
+    "definition": "생성형 AI 모델 개념 정의",
+    "requestContent": "○ 생성형 AI LLM 사전학습 및 미세조정이(한국어, 한국의 현재 상황 기준)이 완료된 우수한 모델 제공\n생성형 AI 모델(LLM Engine)\n멀티 LLM 알고리즘 활용을 위한 기반 환경 지원\n생성형 AI를 위한 LLMOps 등 생성형 AI 학습 및 RAG를 위한 관련프로그램 포함\n구축 착수 직전까지 외부 최신 데이터 학습 필요\n○ 파라미터 수 : 40B 이상"
+  },
+  {
+    "rfpId": "SFR-DHUB-009",
+    "requirementId": "REQ-AI-BA-0003",
+    "name": "데이터허브 – 생성형 AI 기본사항",
+    "definition": "생성형 AI 기본사항 개념 정의",
+    "requestContent": "○ 생성형 AI 프롬프트 전달을 통해 요구 글 또는 이미지 생성"
+  },
+  {
+    "rfpId": "SFR-DHUB-009",
+    "requirementId": "REQ-AI-BA-0004",
+    "name": "데이터허브 – 생성형 AI 기본사항",
+    "definition": "생성형 AI 기본사항 개념 정의",
+    "requestContent": "○ 필요시 한 번에 16,000자 이상의 텍스트 입력(Input Context Length)및 4,000자 이상 텍스트 생성이 가능할 것"
+  },
+  {
+    "rfpId": "SFR-DHUB-009",
+    "requirementId": "REQ-AI-BA-0005",
+    "name": "데이터허브 – 생성형 AI 기본사항",
+    "definition": "생성형 AI 기본사항 개념 정의",
+    "requestContent": "○ 도입되는 하드웨어의 성능을 충분히 활용할 수 있는 수준의 생성형 AI 모델 파라미터 제안할 것 [동시 질의응답 가능 수 : 100건 이상]"
+  },
+  {
+    "rfpId": "SFR-DHUB-009",
+    "requirementId": "REQ-AI-BA-0006",
+    "name": "데이터허브 – 생성형 AI 기본사항",
+    "definition": "생성형 AI 기본사항 개념 정의",
+    "requestContent": "○ LLMOps, RAG, 프롬프트 서비스, 타 시스템을 위한 API 등 생성형 AI 서비스를 위한 모든 소프트웨어 라이선스를 포함"
+  }
+]

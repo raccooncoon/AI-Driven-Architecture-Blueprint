@@ -1,0 +1,49 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Gradle
+.gradle/
+build/
+out/
+bin/
+*.class
+*.log
+*.jar
+*.war
+wrapper/gradle-wrapper.jar
+
+# Spring Boot
+target/
+!mvnw
+!mvnw.cmd
+.mvn/wrapper/maven-wrapper.jar
+
+# Frontend (Node/React)
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+
+# Docker
+postgres_data/
+
+# Environment Variables
+.env
+.env.*.local

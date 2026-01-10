@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: adab-api
+  autoconfigure:
+    exclude: org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/adab_db
+    username: user
+    password: password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  ai:
+    ollama:
+      base-url: https://min-sff:11434
+      chat:
+        enabled: true
+        options:
+          model: gemma2:12b
+    openai:
+      enabled: false
+      api-key: ${OPENAI_API_KEY:dummy}
+      chat:
+        options:
+          model: gpt-4o
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
