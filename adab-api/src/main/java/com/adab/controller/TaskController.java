@@ -41,7 +41,14 @@ public class TaskController {
         return emitter;
     }
 
-    // 2. 과업 목록 조회
+    // 2-1. 전체 과업 조회
+    @GetMapping("/all")
+    public ResponseEntity<TaskListResponse> getAllTasks() {
+        log.info("Getting all tasks");
+        return ResponseEntity.ok(taskService.getAllTasks());
+    }
+
+    // 2-2. 요구사항별 과업 목록 조회
     @GetMapping
     public ResponseEntity<TaskListResponse> getTasks(@RequestParam String requirementId) {
         log.info("Getting tasks for requirement: {}", requirementId);

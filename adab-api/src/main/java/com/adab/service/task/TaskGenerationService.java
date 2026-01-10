@@ -30,6 +30,12 @@ public class TaskGenerationService {
     private final TaskRepository taskRepository;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.ai.ollama.chat.options.model:unknown}")
+    private String ollamaModel;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.ai.openai.chat.options.model:unknown}")
+    private String openaiModel;
+
     private static final long SSE_TIMEOUT = 60000L; // 60초
 
     public void generateTasksWithStreaming(TaskGenerationRequest request, SseEmitter emitter) {
@@ -45,8 +51,26 @@ public class TaskGenerationService {
             sendStatus(emitter, "LLM이 응답을 생성하고 있습니다...");
 
             // 4. LLM 호출
-            String llmResponse = chatModel.call(new Prompt(prompt)).getResult().getOutput().getContent();
-            log.info("LLM Response: {}", llmResponse);
+            var chatResponse = chatModel.call(new Prompt(prompt));
+            String llmResponse = chatResponse.getResult().getOutput().getContent();
+
+            // LLM 모델명 추출 (설정 파일에서 가져오기)
+            String modelName = "Unknown LLM";
+            try {
+                String chatModelClass = chatModel.getClass().getSimpleName();
+                if (chatModelClass.contains("OpenAi")) {
+                    modelName = "OpenAI " + openaiModel;
+                } else if (chatModelClass.contains("Ollama")) {
+                    modelName = "Ollama " + ollamaModel;
+                } else if (chatModelClass.contains("Anthropic")) {
+                    modelName = "Anthropic Claude";
+                } else {
+                    modelName = chatModelClass.replace("ChatModel", "").replace("Client", "");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to extract model name, using default: {}", e.getMessage());
+            }
+            log.info("LLM Response from {}: {}", modelName, llmResponse);
 
             // 5. JSON 파싱
             List<Map<String, String>> taskDataList = parseJsonFromResponse(llmResponse);
@@ -66,6 +90,7 @@ public class TaskGenerationService {
 
             // 7. Task 생성 및 전송
             AtomicInteger taskCount = new AtomicInteger(0);
+            final String finalModelName = modelName; // final 변수로 만들어 람다에서 사용 가능하도록
             for (int i = 0; i < taskDataList.size(); i++) {
                 Map<String, String> taskData = taskDataList.get(i);
 
@@ -83,6 +108,7 @@ public class TaskGenerationService {
                 task.setDetailFunctionId(taskData.getOrDefault("detailFunctionId", "FUNC-" + String.format("%03d", i + 1)));
                 task.setDetailFunction(taskData.get("detailFunction"));
                 task.setSubFunction(taskData.get("subFunction"));
+                task.setGeneratedBy(finalModelName);  // LLM 모델명 설정
 
                 Task savedTask = taskRepository.save(task);
 
@@ -97,6 +123,7 @@ public class TaskGenerationService {
                         .detailFunctionId(savedTask.getDetailFunctionId())
                         .detailFunction(savedTask.getDetailFunction())
                         .subFunction(savedTask.getSubFunction())
+                        .generatedBy(savedTask.getGeneratedBy())  // LLM 모델명 추가
                         .createdAt(savedTask.getCreatedAt())
                         .updatedAt(savedTask.getUpdatedAt())
                         .build();
@@ -124,7 +151,7 @@ public class TaskGenerationService {
 
     private String buildPrompt(TaskGenerationRequest request) {
         return String.format("""
-                다음 RFP 요구사항을 분석하여 세부 과업(Task)으로 분해해주세요.
+                다음 RFP 요구사항을 분석하여 구체적이고 실행 가능한 세부 과업(Task)으로 분해해주세요.
 
                 요구사항 정보:
                 - ID: %s
@@ -133,25 +160,47 @@ public class TaskGenerationService {
                 - 제안요청내용:
                 %s
 
-                **중요: 제안요청내용에 나열된 모든 항목(한 줄 한 줄)을 빠짐없이 과업으로 생성해야 합니다.**
+                **핵심 원칙:**
+                1. 제안요청내용의 각 항목을 **기능 단위**로 분해하세요
+                2. 하나의 시스템/서비스/컴포넌트 = 1개 과업 (예: LLM 모델 관리, 통합 채팅 서비스, 데이터 마트 설계)
+                3. 각 과업의 subFunction은 **요구사항 정의서 작성에 필요한 핵심 정보**를 포함해야 합니다
 
-                제안요청내용의 각 줄(항목)을 분석하여, 각각을 하나의 독립적인 과업으로 만들어주세요.
-                - 제안요청내용에 "○"나 "-"로 시작하는 항목이 있다면 각 항목마다 별도의 과업을 생성하세요.
-                - 만약 제안요청내용이 한 줄만 있다면 그것을 여러 세부 과업으로 나누지 말고 하나의 과업으로 생성하세요.
-                - 항목이 여러 개라면 반드시 모든 항목을 포함하여 과업을 생성하세요.
+                **과업 분해 기준 (참고):**
+                - LLM 모델 관리, LLMOps 구축, 통합 채팅 서비스, 데이터 마트 설계
+                - 관리자 포털, 문서 QA 및 요약, 보고서 자동 생성
+                - T2SQL 파이프라인, 벡터 검색 DB 구축, AI 코딩 어시스턴트
+                - 프로젝트 관리, 개발 표준, 유지보수, 교육지원
 
-                각 과업은 다음 형식의 JSON 배열로 응답해주세요:
+                **과업 분해 규칙:**
+                - 제안요청내용에 "○"나 "-"로 시작하는 항목이 있다면:
+                  1) 각 항목이 **독립적인 기능/시스템**이면 → 1개 과업으로 생성
+                  2) 한 항목에 **"또는" 으로 구분된 다른 기능**이 있으면 → 분리
+                     예: "글 또는 이미지 생성" → "글 생성 기능", "이미지 생성 기능"
+                  3) 한 항목에 여러 세부 기능이 나열되어도 **같은 시스템/목적**이면 → 1개 과업 유지
+                     예: "LLM 모델 제시 및 학습" → 1개 과업 (LLM 모델 관리)
+                     예: "채팅 UI 개발 및 API 연동" → 1개 과업 (통합 채팅 서비스)
+                - **기능 단위로 적절히 그룹핑**하되, 과도하게 세분화하지 마세요
+
+                **각 과업은 다음 JSON 형식으로 응답:**
 
                 [
                   {
-                    "summary": "과업 내용 요약 (제안요청내용의 해당 항목을 구체적으로)",
+                    "summary": "과업 내용을 한 문장으로 요약 (무엇을 구현/개발/구축하는지 명확히)",
                     "majorCategoryId": "CAT-XXX",
-                    "majorCategory": "기능 대분류 (예: AI 모델 개발, 데이터 처리, 인프라 구축, 품질 검증 등)",
+                    "majorCategory": "기능 대분류 (예: 모델 개발, 데이터 처리, 인프라 구축, API 개발, 품질 검증 등)",
                     "detailFunctionId": "FUNC-XXX",
-                    "detailFunction": "상세 기능명",
-                    "subFunction": "세부 기능 설명"
+                    "detailFunction": "구체적인 기능명 (개발자가 즉시 이해할 수 있는 수준)",
+                    "subFunction": "요구사항 정의서 작성을 위한 핵심 정보를 3-4문장으로 간결하게 작성:\n1) 구현 목적 및 범위 (무엇을 왜 만드는가)\n2) 핵심 기술 요구사항 (제안요청내용에 명시된 기술/방법)\n3) 주요 제약사항 또는 성능 기준 (있다면)\n제안요청내용에 명시된 핵심 내용만 포함하고, 불필요한 상세 설명은 제외할 것"
                   }
                 ]
+
+                **subFunction 작성 예시:**
+                "프라이빗 클라우드 환경에서 독립적으로 운영 가능한 LLM 모델을 제시해야 합니다. 외부 API 의존 없이 자체 인프라에서 안전하게 운영되어야 하며, 제안 시 모델 규모, 필요 하드웨어 스펙, 예상 성능을 명시해야 합니다. 보안 및 데이터 주권 측면에서 민감 데이터가 외부 유출되지 않도록 격리 환경 운영이 가능해야 합니다."
+
+                **주의사항:**
+                - 제안요청내용에 명시되지 않은 기능이나 기술을 임의로 추가하지 마세요
+                - 핵심 요구사항과 제약사항 위주로 간결하게 작성하세요
+                - 각 과업이 독립적으로 이해되고 구현될 수 있도록 작성하세요
 
                 JSON 배열만 응답하고 다른 설명은 포함하지 마세요.
                 """,

@@ -35,4 +35,19 @@ public class RequirementController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PutMapping("/{requirementId}")
+    public ResponseEntity<RequirementResponse> updateRequirement(
+            @PathVariable String requirementId,
+            @RequestBody RequirementResponse request) {
+        return requirementService.updateRequirement(requirementId, request)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{requirementId}")
+    public ResponseEntity<Void> deleteRequirement(@PathVariable String requirementId) {
+        boolean deleted = requirementService.deleteRequirement(requirementId);
+        return deleted ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
 }

@@ -65,7 +65,7 @@ public class RequirementService {
     }
 
     public List<RequirementResponse> getAllRequirements() {
-        return requirementRepository.findAll().stream()
+        return requirementRepository.findAllByOrderByRequirementIdAsc().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -73,6 +73,25 @@ public class RequirementService {
     public Optional<RequirementResponse> getRequirementById(String requirementId) {
         return requirementRepository.findById(requirementId)
                 .map(this::toResponse);
+    }
+
+    @Transactional
+    public Optional<RequirementResponse> updateRequirement(String requirementId, RequirementResponse dto) {
+        return requirementRepository.findById(requirementId)
+                .map(requirement -> {
+                    requirement.update(toEntity(dto));
+                    Requirement updated = requirementRepository.save(requirement);
+                    return toResponse(updated);
+                });
+    }
+
+    @Transactional
+    public boolean deleteRequirement(String requirementId) {
+        if (requirementRepository.existsById(requirementId)) {
+            requirementRepository.deleteById(requirementId);
+            return true;
+        }
+        return false;
     }
 
     private Requirement toEntity(RequirementResponse dto) {

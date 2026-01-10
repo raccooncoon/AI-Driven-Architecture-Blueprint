@@ -9,6 +9,18 @@ export const getRequirements = async () => {
     return response.data;
 };
 
+// 전체 과업 조회
+export const getAllTasks = async () => {
+    const response = await api.get('/tasks/all');
+    return response.data;
+};
+
+// 요구사항 수정
+export const updateRequirement = async (requirementId: string, data: any) => {
+    const response = await api.put(`/requirements/${requirementId}`, data);
+    return response.data;
+};
+
 // RFP 샘플 데이터 일괄 업로드
 export const uploadRequirementsBatch = async (file: File) => {
     const formData = new FormData();
@@ -31,6 +43,9 @@ export type TaskCard = {
   detailFunctionId: string;
   detailFunction: string;
   subFunction: string;
+  generatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // 과업 존재 여부 확인

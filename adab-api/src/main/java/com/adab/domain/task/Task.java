@@ -34,6 +34,9 @@ public class Task {
     @Column(length = 2000)
     private String subFunction;
 
+    @Column(length = 100)
+    private String generatedBy;  // 데이터 생성에 사용된 LLM 모델명
+
     @CreatedDate
     private LocalDateTime createdAt;
 

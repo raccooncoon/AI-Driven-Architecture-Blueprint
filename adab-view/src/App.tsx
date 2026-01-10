@@ -1,7 +1,7 @@
 import './App.css'
 import { useState, useEffect, useRef } from 'react'
 import * as React from 'react'
-import { getRequirements, uploadRequirementsBatch, generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
+import { getRequirements, getAllTasks, uploadRequirementsBatch, updateRequirement, generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
 
 interface Requirement {
   rfpId: string
@@ -34,25 +34,211 @@ function App() {
   const [generationStatus, setGenerationStatus] = useState<Map<number, string>>(new Map())
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editingContent, setEditingContent] = useState<string>('')
+  const [editingDeadline, setEditingDeadline] = useState<string>('')
+  const [editingImplementationOpinion, setEditingImplementationOpinion] = useState<string>('')
+  const [editingPobaOpinion, setEditingPobaOpinion] = useState<string>('')
+  const [editingTechInnovationOpinion, setEditingTechInnovationOpinion] = useState<string>('')
+  const [batchGenerating, setBatchGenerating] = useState(false)
+  const [batchProgress, setBatchProgress] = useState<{current: number, total: number}>({current: 0, total: 0})
 
-  // 백엔드에서 요구사항 데이터 가져오기
+  // 백엔드에서 요구사항 및 과업 데이터 가져오기
   useEffect(() => {
-    const fetchRequirements = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
-        const data = await getRequirements()
-        setRequirements(data)
+
+        // 요구사항과 과업 데이터를 병렬로 가져오기
+        const [requirementsData, tasksData] = await Promise.all([
+          getRequirements(),
+          getAllTasks()
+        ])
+
+        setRequirements(requirementsData)
+
+        // 과업 데이터가 있으면 변환하여 설정
+        if (tasksData.success && tasksData.data && tasksData.data.length > 0) {
+          const loadedTasks: TaskCard[] = tasksData.data.map((task: any) => {
+            // parentIndex를 requirements 배열에서 찾기
+            const parentIndex = requirementsData.findIndex(
+              (req: Requirement) => req.requirementId === task.parentRequirementId
+            )
+
+            return {
+              id: task.id,
+              parentRequirementId: task.parentRequirementId,
+              parentIndex: parentIndex >= 0 ? parentIndex : task.parentIndex || 0,
+              summary: task.summary,
+              majorCategoryId: task.majorCategoryId,
+              majorCategory: task.majorCategory,
+              detailFunctionId: task.detailFunctionId,
+              detailFunction: task.detailFunction,
+              subFunction: task.subFunction
+            }
+          })
+          setTaskCards(loadedTasks)
+        }
+
         setError(null)
       } catch (err) {
-        console.error('요구사항 로딩 실패:', err)
-        setError('요구사항을 불러오는데 실패했습니다.')
+        console.error('데이터 로딩 실패:', err)
+        setError('데이터를 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchRequirements()
+    fetchData()
   }, [])
+
+  // 편집 시작
+  const startEditing = (index: number, req: Requirement) => {
+    setEditingIndex(index)
+    setEditingContent(req.requestContent)
+    setEditingDeadline(req.deadline || '')
+    setEditingImplementationOpinion(req.implementationOpinion || '')
+    setEditingPobaOpinion(req.pobaOpinion || '')
+    setEditingTechInnovationOpinion(req.techInnovationOpinion || '')
+  }
+
+  // 편집 취소
+  const cancelEditing = () => {
+    setEditingIndex(null)
+    setEditingContent('')
+    setEditingDeadline('')
+    setEditingImplementationOpinion('')
+    setEditingPobaOpinion('')
+    setEditingTechInnovationOpinion('')
+  }
+
+  // 저장
+  const saveEditing = async (req: Requirement, index: number) => {
+    try {
+      const updatedReq = {
+        ...req,
+        requestContent: editingContent,
+        deadline: editingDeadline,
+        implementationOpinion: editingImplementationOpinion,
+        pobaOpinion: editingPobaOpinion,
+        techInnovationOpinion: editingTechInnovationOpinion
+      }
+
+      await updateRequirement(req.requirementId, updatedReq)
+
+      // 로컬 상태 업데이트
+      setRequirements(prev =>
+        prev.map((r, i) => i === index ? {
+          ...r,
+          requestContent: editingContent,
+          deadline: editingDeadline,
+          implementationOpinion: editingImplementationOpinion,
+          pobaOpinion: editingPobaOpinion,
+          techInnovationOpinion: editingTechInnovationOpinion
+        } : r)
+      )
+
+      setEditingIndex(null)
+      setEditingContent('')
+      setEditingDeadline('')
+      setEditingImplementationOpinion('')
+      setEditingPobaOpinion('')
+      setEditingTechInnovationOpinion('')
+
+      alert('✅ 수정이 완료되었습니다.')
+    } catch (err: any) {
+      console.error('수정 실패:', err)
+      alert(`❌ 수정 실패: ${err.response?.data?.message || err.message}`)
+    }
+  }
+
+  // 전체 과업 순차 생성
+  const generateAllTasks = async () => {
+    if (batchGenerating) return
+
+    // 기존 과업 개수 확인
+    const existingTaskCount = taskCards.length
+
+    const confirmMessage = existingTaskCount > 0
+      ? `⚠️ 전체 과업 생성 안내\n\n총 ${requirements.length}개의 요구사항에 대해 순차적으로 과업을 생성합니다.\n\n【중요】기존에 생성된 ${existingTaskCount}개의 과업이 모두 삭제되고 새로 생성됩니다.\n\n예상 소요 시간: 약 ${Math.ceil(requirements.length * 0.5)}분\n\n계속하시겠습니까?`
+      : `총 ${requirements.length}개의 요구사항에 대해 순차적으로 과업을 생성합니다.\n\n예상 소요 시간: 약 ${Math.ceil(requirements.length * 0.5)}분\n\n계속하시겠습니까?`
+
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    setBatchGenerating(true)
+    setBatchProgress({current: 0, total: requirements.length})
+
+    for (let i = 0; i < requirements.length; i++) {
+      const req = requirements[i]
+
+      try {
+        setBatchProgress({current: i + 1, total: requirements.length})
+
+        // 이미 과업이 있는지 확인
+        const exists = await checkTasksExist(req.requirementId)
+
+        if (exists.exists && exists.count > 0) {
+          // 이미 과업이 있으면 삭제
+          await deleteTasksByRequirement(req.requirementId)
+
+          // 해당 요구사항의 과업 카드 제거
+          setTaskCards(prev => prev.filter(t => t.parentRequirementId !== req.requirementId))
+        }
+
+        // 과업 생성
+        await new Promise<void>((resolve, reject) => {
+          generateTasksWithBackend(
+            { ...req, index: i },
+            (message) => {
+              // 상태 업데이트
+              setGenerationStatus(prev => new Map(prev).set(i, message))
+            },
+            (task) => {
+              // 과업 추가
+              setTaskCards(prev => [...prev, task])
+            },
+            () => {
+              // 완료
+              setGenerationStatus(prev => {
+                const next = new Map(prev)
+                next.delete(i)
+                return next
+              })
+
+              // 과업이 생성된 위치로 스크롤
+              setTimeout(() => {
+                const rowElement = document.getElementById(`row-${i}`)
+                if (rowElement) {
+                  rowElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              }, 100)
+
+              resolve()
+            },
+            (error) => {
+              console.error(`요구사항 ${req.requirementId} 과업 생성 실패:`, error)
+              reject(error)
+            }
+          )
+        })
+
+        // 다음 요구사항 처리 전 1초 대기
+        if (i < requirements.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+
+      } catch (error) {
+        console.error(`요구사항 ${req.requirementId} 처리 중 오류:`, error)
+        // 오류가 발생해도 계속 진행
+      }
+    }
+
+    setBatchGenerating(false)
+    setBatchProgress({current: 0, total: 0})
+    alert('✅ 전체 과업 생성이 완료되었습니다!')
+  }
 
   // 파일 업로드 핸들러
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,6 +424,14 @@ function App() {
           next.delete(index)
           return next
         })
+
+        // 과업이 생성된 위치로 스크롤
+        setTimeout(() => {
+          const rowElement = document.getElementById(`row-${index}`)
+          if (rowElement) {
+            rowElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 100)
       },
       // onError
       (error: Error) => {
@@ -340,7 +534,60 @@ function App() {
           backgroundClip: 'text',
           letterSpacing: '-0.5px'
         }}>RFP 요구사항 관리</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {batchGenerating && (
+            <div style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              border: '1px solid #3b82f6',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              color: '#60a5fa',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <span style={{
+                animation: 'spin 1s linear infinite',
+                display: 'inline-block'
+              }}>⚙️</span>
+              {batchProgress.current}/{batchProgress.total} 생성 중...
+            </div>
+          )}
+          <button
+            onClick={generateAllTasks}
+            disabled={batchGenerating || requirements.length === 0}
+            style={{
+              padding: '0.5rem 1rem',
+              background: batchGenerating
+                ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: batchGenerating || requirements.length === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              opacity: batchGenerating || requirements.length === 0 ? 0.6 : 1,
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+            }}
+            onMouseEnter={(e) => {
+              if (!batchGenerating && requirements.length > 0) {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!batchGenerating) {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(245, 158, 11, 0.3)'
+              }
+            }}
+          >
+            🚀 전체 과업 생성
+          </button>
           <button
               onClick={expandAll}
               style={{
@@ -634,69 +881,152 @@ function App() {
                         [{req.requirementId}]
                       </span>
                     </div>
-                    <button
-                      id={`btn-${index}`}
-                      onClick={() => generateTaskCards(req, index)}
-                      disabled={generatingTasks.has(index)}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        background: generatingTasks.has(index)
-                          ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
-                          : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: generatingTasks.has(index) ? 'not-allowed' : 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        opacity: generatingTasks.has(index) ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!generatingTasks.has(index)) {
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!generatingTasks.has(index)) {
-                          e.currentTarget.style.transform = 'translateY(0)'
-                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
-                        }
-                      }}
-                    >
-                      {generatingTasks.has(index) && (
-                        <span style={{
-                          animation: 'spin 1s linear infinite',
-                          display: 'inline-block'
-                        }}>⚙️</span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {editingIndex === index ? (
+                        <>
+                          <button
+                            onClick={() => saveEditing(req, index)}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.3s'
+                            }}
+                          >
+                            💾 저장
+                          </button>
+                          <button
+                            onClick={cancelEditing}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.3s'
+                            }}
+                          >
+                            ✕ 취소
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEditing(index, req)}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.3s'
+                            }}
+                          >
+                            ✏️ 수정
+                          </button>
+                          <button
+                            id={`btn-${index}`}
+                            onClick={() => generateTaskCards(req, index)}
+                            disabled={generatingTasks.has(index)}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: generatingTasks.has(index)
+                                ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                                : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              cursor: generatingTasks.has(index) ? 'not-allowed' : 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                              position: 'relative',
+                              overflow: 'hidden',
+                              opacity: generatingTasks.has(index) ? 0.7 : 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!generatingTasks.has(index)) {
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!generatingTasks.has(index)) {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
+                              }
+                            }}
+                          >
+                            {generatingTasks.has(index) && (
+                              <span style={{
+                                animation: 'spin 1s linear infinite',
+                                display: 'inline-block'
+                              }}>⚙️</span>
+                            )}
+                            <span>
+                              {generatingTasks.has(index) ? '생성 중...' : '✨ 과업 생성'}
+                            </span>
+                          </button>
+                        </>
                       )}
-                      <span>
-                        {generatingTasks.has(index) ? '생성 중...' : '✨ 과업 생성'}
-                      </span>
-                    </button>
+                    </div>
                   </div>
-                  <div style={{
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: '1.8',
-                    color: '#e2e8f0',
-                    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                    padding: '1.25rem',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(51, 65, 85, 0.5)',
-                    borderLeft: '4px solid #60a5fa',
-                    fontSize: '0.95rem',
-                    backdropFilter: 'blur(10px)'
-                  }}>
-                    {req.requestContent}
-                  </div>
+                  {editingIndex === index ? (
+                    <textarea
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      style={{
+                        width: '100%',
+                        minHeight: '200px',
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: '1.8',
+                        color: '#e2e8f0',
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                        padding: '1.25rem',
+                        borderRadius: '12px',
+                        border: '2px solid #8b5cf6',
+                        borderLeft: '4px solid #8b5cf6',
+                        fontSize: '0.95rem',
+                        backdropFilter: 'blur(10px)',
+                        fontFamily: 'inherit',
+                        resize: 'vertical'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: '1.8',
+                      color: '#e2e8f0',
+                      backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                      padding: '1.25rem',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(51, 65, 85, 0.5)',
+                      borderLeft: '4px solid #60a5fa',
+                      fontSize: '0.95rem',
+                      backdropFilter: 'blur(10px)'
+                    }}>
+                      {req.requestContent}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -740,7 +1070,8 @@ function App() {
 
                   {expandedCards.has(index) && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-                      {req.deadline && (
+                      {/* 기능 제공 기한 */}
+                      {(editingIndex === index || req.deadline) && (
                         <div>
                           <div style={{
                             fontSize: '0.85rem',
@@ -750,20 +1081,40 @@ function App() {
                           }}>
                             기능 제공 기한
                           </div>
-                          <div style={{
-                            fontSize: '0.95rem',
-                            color: '#cbd5e1',
-                            padding: '0.5rem 1rem',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '8px'
-                          }}>
-                            {req.deadline}
-                          </div>
+                          {editingIndex === index ? (
+                            <input
+                              type="text"
+                              value={editingDeadline}
+                              onChange={(e) => setEditingDeadline(e.target.value)}
+                              placeholder="예: 2024-12-31"
+                              style={{
+                                width: '100%',
+                                fontSize: '0.95rem',
+                                color: '#e2e8f0',
+                                padding: '0.75rem 1rem',
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                fontFamily: 'inherit'
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              fontSize: '0.95rem',
+                              color: '#cbd5e1',
+                              padding: '0.5rem 1rem',
+                              backgroundColor: '#1e293b',
+                              border: '1px solid #334155',
+                              borderRadius: '8px'
+                            }}>
+                              {req.deadline}
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {req.implementationOpinion && (
+                      {/* 이행 의견 */}
+                      {(editingIndex === index || req.implementationOpinion) && (
                         <div>
                           <div style={{
                             fontSize: '0.85rem',
@@ -773,22 +1124,45 @@ function App() {
                           }}>
                             이행 의견
                           </div>
-                          <div style={{
-                            whiteSpace: 'pre-wrap',
-                            fontSize: '0.95rem',
-                            color: '#cbd5e1',
-                            padding: '0.75rem 1rem',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '8px',
-                            lineHeight: '1.6'
-                          }}>
-                            {req.implementationOpinion}
-                          </div>
+                          {editingIndex === index ? (
+                            <textarea
+                              value={editingImplementationOpinion}
+                              onChange={(e) => setEditingImplementationOpinion(e.target.value)}
+                              placeholder="이행 의견을 입력하세요"
+                              style={{
+                                width: '100%',
+                                minHeight: '80px',
+                                whiteSpace: 'pre-wrap',
+                                fontSize: '0.95rem',
+                                color: '#e2e8f0',
+                                padding: '0.75rem 1rem',
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                lineHeight: '1.6',
+                                fontFamily: 'inherit',
+                                resize: 'vertical'
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              whiteSpace: 'pre-wrap',
+                              fontSize: '0.95rem',
+                              color: '#cbd5e1',
+                              padding: '0.75rem 1rem',
+                              backgroundColor: '#1e293b',
+                              border: '1px solid #334155',
+                              borderRadius: '8px',
+                              lineHeight: '1.6'
+                            }}>
+                              {req.implementationOpinion}
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {req.pobaOpinion && (
+                      {/* PO/BA 의견 */}
+                      {(editingIndex === index || req.pobaOpinion) && (
                         <div>
                           <div style={{
                             fontSize: '0.85rem',
@@ -798,22 +1172,45 @@ function App() {
                           }}>
                             PO/BA 의견
                           </div>
-                          <div style={{
-                            whiteSpace: 'pre-wrap',
-                            fontSize: '0.95rem',
-                            color: '#cbd5e1',
-                            padding: '0.75rem 1rem',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '8px',
-                            lineHeight: '1.6'
-                          }}>
-                            {req.pobaOpinion}
-                          </div>
+                          {editingIndex === index ? (
+                            <textarea
+                              value={editingPobaOpinion}
+                              onChange={(e) => setEditingPobaOpinion(e.target.value)}
+                              placeholder="PO/BA 의견을 입력하세요"
+                              style={{
+                                width: '100%',
+                                minHeight: '80px',
+                                whiteSpace: 'pre-wrap',
+                                fontSize: '0.95rem',
+                                color: '#e2e8f0',
+                                padding: '0.75rem 1rem',
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                lineHeight: '1.6',
+                                fontFamily: 'inherit',
+                                resize: 'vertical'
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              whiteSpace: 'pre-wrap',
+                              fontSize: '0.95rem',
+                              color: '#cbd5e1',
+                              padding: '0.75rem 1rem',
+                              backgroundColor: '#1e293b',
+                              border: '1px solid #334155',
+                              borderRadius: '8px',
+                              lineHeight: '1.6'
+                            }}>
+                              {req.pobaOpinion}
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {req.techInnovationOpinion && (
+                      {/* 기술혁신 의견 */}
+                      {(editingIndex === index || req.techInnovationOpinion) && (
                         <div>
                           <div style={{
                             fontSize: '0.85rem',
@@ -823,18 +1220,40 @@ function App() {
                           }}>
                             기술혁신 의견
                           </div>
-                          <div style={{
-                            whiteSpace: 'pre-wrap',
-                            fontSize: '0.95rem',
-                            color: '#cbd5e1',
-                            padding: '0.75rem 1rem',
-                            backgroundColor: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '8px',
-                            lineHeight: '1.6'
-                          }}>
-                            {req.techInnovationOpinion}
-                          </div>
+                          {editingIndex === index ? (
+                            <textarea
+                              value={editingTechInnovationOpinion}
+                              onChange={(e) => setEditingTechInnovationOpinion(e.target.value)}
+                              placeholder="기술혁신 의견을 입력하세요"
+                              style={{
+                                width: '100%',
+                                minHeight: '80px',
+                                whiteSpace: 'pre-wrap',
+                                fontSize: '0.95rem',
+                                color: '#e2e8f0',
+                                padding: '0.75rem 1rem',
+                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                border: '2px solid #8b5cf6',
+                                borderRadius: '8px',
+                                lineHeight: '1.6',
+                                fontFamily: 'inherit',
+                                resize: 'vertical'
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              whiteSpace: 'pre-wrap',
+                              fontSize: '0.95rem',
+                              color: '#cbd5e1',
+                              padding: '0.75rem 1rem',
+                              backgroundColor: '#1e293b',
+                              border: '1px solid #334155',
+                              borderRadius: '8px',
+                              lineHeight: '1.6'
+                            }}>
+                              {req.techInnovationOpinion}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -843,7 +1262,8 @@ function App() {
               </div>
                 </div>
 
-                {hasAnyTaskCards && (
+                {/* 과업 생성 중이거나 과업이 있을 때만 리사이저 표시 */}
+                {(hasAnyTaskCards || generatingTasks.has(index)) && (
                   <>
                     {/* 리사이저 */}
                     <div
@@ -901,24 +1321,21 @@ function App() {
                     {generatingTasks.has(index) && relatedTasks.length === 0 ? (
                       <div style={{
                         flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '2rem'
+                        paddingLeft: '2rem'
                       }}>
                         <div style={{
+                          width: '100%',
                           background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
                           color: 'white',
                           padding: '2rem 3rem',
                           borderRadius: '16px',
                           fontSize: '1.1rem',
                           fontWeight: 600,
-                          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.2)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(148, 163, 184, 0.1)',
                           textAlign: 'center',
                           letterSpacing: '0.3px',
                           position: 'relative',
-                          overflow: 'hidden',
-                          minWidth: '500px'
+                          overflow: 'hidden'
                         }}>
                           <div style={{
                             position: 'absolute',
@@ -1056,29 +1473,31 @@ function App() {
                         }} />
 
                         <div style={{
-                          display: 'inline-block',
-                          background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
-                          color: 'white',
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '20px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          marginBottom: '1rem',
-                          letterSpacing: '0.5px',
-                          boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
-                        }}>
-                          TASK #{taskIndex + 1}
-                        </div>
-
-                        <div style={{
                           marginBottom: '1rem',
                           paddingBottom: '1rem',
-                          borderBottom: '1px dashed #334155'
+                          borderBottom: '1px dashed #334155',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
                         }}>
-                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 600 }}>
-                            과업 ID
+                          <div style={{
+                            display: 'inline-block',
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                            color: 'white',
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '20px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.5px',
+                            boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                          }}>
+                            TASK #{taskIndex + 1}
                           </div>
-                          <div style={{ fontWeight: 700, color: '#60a5fa', fontSize: '1.1rem' }}>
+                          <div style={{
+                            fontWeight: 700,
+                            color: '#60a5fa',
+                            fontSize: '1.1rem'
+                          }}>
                             {task.id}
                           </div>
                         </div>
@@ -1161,10 +1580,58 @@ function App() {
                           <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase' }}>
                             세부 기능
                           </div>
-                          <div style={{ fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 500, lineHeight: '1.5' }}>
+                          <div style={{ fontSize: '1.05rem', color: '#cbd5e1', fontWeight: 500, lineHeight: '1.6' }}>
                             {task.subFunction}
                           </div>
                         </div>
+
+                        {/* 생성 모델 정보 */}
+                        {task.generatedBy && (
+                          <div style={{
+                            marginTop: '0.75rem',
+                            padding: '0.4rem 0.75rem',
+                            background: 'rgba(139, 92, 246, 0.08)',
+                            border: '1px solid rgba(139, 92, 246, 0.25)',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '0.5rem'
+                          }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}>
+                              <div style={{
+                                fontSize: '0.85rem'
+                              }}>🤖</div>
+                              <div style={{
+                                fontSize: '0.7rem',
+                                color: '#94a3b8',
+                                fontWeight: 500
+                              }}>
+                                {task.generatedBy}
+                              </div>
+                            </div>
+                            {task.createdAt && (
+                              <div style={{
+                                fontSize: '0.65rem',
+                                color: '#64748b',
+                                fontWeight: 500
+                              }}>
+                                {new Date(task.createdAt).toLocaleString('ko-KR', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit'
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                     </>

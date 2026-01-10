@@ -19,6 +19,23 @@ public class TaskService {
     private final TaskRepository taskRepository;
 
     /**
+     * 모든 과업 조회
+     */
+    public TaskListResponse getAllTasks() {
+        List<Task> tasks = taskRepository.findAll();
+
+        List<TaskResponse> taskResponses = tasks.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+
+        return TaskListResponse.builder()
+                .success(true)
+                .data(taskResponses)
+                .count(taskResponses.size())
+                .build();
+    }
+
+    /**
      * 요구사항 ID로 모든 과업 조회
      */
     public TaskListResponse getTasksByRequirementId(String requirementId) {

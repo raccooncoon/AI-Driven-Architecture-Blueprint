@@ -21,6 +21,7 @@ public class TaskResponse {
     private String detailFunctionId;
     private String detailFunction;
     private String subFunction;
+    private String generatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
