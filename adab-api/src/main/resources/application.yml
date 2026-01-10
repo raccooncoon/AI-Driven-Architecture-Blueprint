@@ -16,11 +16,11 @@ spring:
         format_sql: true
   ai:
     ollama:
-      base-url: https://min-sff:11434
+      base-url: http://min-sff:11434
       chat:
         enabled: true
         options:
-          model: gemma2:12b
+          model: gemma3:12b
     openai:
       enabled: false
       api-key: ${OPENAI_API_KEY:dummy}

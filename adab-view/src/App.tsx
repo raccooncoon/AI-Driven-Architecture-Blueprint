@@ -2,6 +2,7 @@ import './App.css'
 import rfpData from './sample/rfp_sample.json'
 import { useState } from 'react'
 import * as React from 'react'
+import { generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement, type TaskCard } from './api'
 
 interface Requirement {
   rfpId: string
@@ -16,18 +17,6 @@ interface Requirement {
   techInnovationOpinion: string
 }
 
-interface TaskCard {
-  id: string
-  parentRequirementId: string
-  parentIndex: number
-  summary: string
-  majorCategoryId: string
-  majorCategory: string
-  detailFunctionId: string
-  detailFunction: string
-  subFunction: string
-}
-
 function App() {
   const requirements: Requirement[] = rfpData
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set())
@@ -39,6 +28,8 @@ function App() {
   const [isResizing, setIsResizing] = useState(false)
   const [globalRfpWidth, setGlobalRfpWidth] = useState(window.innerWidth * 0.5)
   const [autoCollapsedLeft, setAutoCollapsedLeft] = useState(false)
+  const [generatingTasks, setGeneratingTasks] = useState<Set<number>>(new Set())
+  const [generationStatus, setGenerationStatus] = useState<Map<number, string>>(new Map())
 
   const toggleExpand = (index: number) => {
     setExpandedCards(prev => {
@@ -132,101 +123,132 @@ function App() {
     }
   }, [isResizing])
 
-  const generateTaskCards = (req: Requirement, index: number) => {
-    // TODO: AI를 사용하여 과업 내용을 분석하고 여러 개의 태스크 카드 생성
-    // 임시로 샘플 데이터 생성
-    const newTasks: TaskCard[] = [
-      {
-        id: `${req.requirementId}-TASK-001`,
-        parentRequirementId: req.requirementId,
-        parentIndex: index,
-        summary: `${req.name} - 기능 구현`,
-        majorCategoryId: 'CAT-001',
-        majorCategory: 'AI 모델 개발',
-        detailFunctionId: 'FUNC-001',
-        detailFunction: 'LLM 모델 구축',
-        subFunction: '사전학습 모델 준비'
-      },
-      {
-        id: `${req.requirementId}-TASK-002`,
-        parentRequirementId: req.requirementId,
-        parentIndex: index,
-        summary: `${req.name} - 테스트`,
-        majorCategoryId: 'CAT-002',
-        majorCategory: '품질 검증',
-        detailFunctionId: 'FUNC-002',
-        detailFunction: '성능 테스트',
-        subFunction: '모델 정확도 측정'
-      }
-    ]
+  const generateTaskCards = async (req: Requirement, index: number) => {
+    // 이미 생성 중이면 중단
+    if (generatingTasks.has(index)) {
+      return
+    }
 
-    setTaskCards(prev => [...prev, ...newTasks])
+    try {
+      // 기존 과업 존재 여부 확인
+      const existsResult = await checkTasksExist(req.requirementId)
+
+      if (existsResult.exists && existsResult.count > 0) {
+        const confirmed = window.confirm(
+          `해당 요구사항(${req.requirementId})에 이미 ${existsResult.count}개의 과업이 존재합니다.\n` +
+          `기존 과업을 삭제하고 새로 생성하시겠습니까?\n\n` +
+          `- 확인: 기존 과업 삭제 후 새로 생성\n` +
+          `- 취소: 기존 과업 유지하고 추가 생성`
+        )
+
+        if (confirmed) {
+          // 기존 과업 삭제
+          const deleteResult = await deleteTasksByRequirement(req.requirementId)
+          console.log(`${deleteResult.deletedCount}개의 과업이 삭제되었습니다.`)
+
+          // 화면에서도 제거
+          setTaskCards(prev => prev.filter(t => t.parentRequirementId !== req.requirementId))
+        }
+      }
+    } catch (error) {
+      console.error('과업 확인/삭제 오류:', error)
+    }
+
+    // 생성 시작
+    setGeneratingTasks(prev => new Set(prev).add(index))
+    setGenerationStatus(prev => new Map(prev).set(index, 'LLM 분석을 시작합니다...'))
     setCollapsedTaskViews(prev => {
       const next = new Set(prev)
       next.delete(index)
       return next
     })
-    alert(`${newTasks.length}개의 과업 카드가 생성되었습니다.`)
+
+    // 백엔드 API 호출
+    await generateTasksWithBackend(
+      { ...req, index },
+      // onStatus
+      (message: string) => {
+        setGenerationStatus(prev => new Map(prev).set(index, message))
+      },
+      // onTask
+      (task: TaskCard) => {
+        setTaskCards(prev => [...prev, task])
+      },
+      // onComplete
+      () => {
+        setGeneratingTasks(prev => {
+          const next = new Set(prev)
+          next.delete(index)
+          return next
+        })
+        setGenerationStatus(prev => {
+          const next = new Map(prev)
+          next.delete(index)
+          return next
+        })
+      },
+      // onError
+      (error: Error) => {
+        console.error('과업 생성 실패:', error)
+        setGenerationStatus(prev => new Map(prev).set(index, `❌ 오류: ${error.message}`))
+        setTimeout(() => {
+          setGeneratingTasks(prev => {
+            const next = new Set(prev)
+            next.delete(index)
+            return next
+          })
+          setGenerationStatus(prev => {
+            const next = new Map(prev)
+            next.delete(index)
+            return next
+          })
+        }, 3000)
+      }
+    )
   }
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', margin: 0, padding: 0 }}>
       <header style={{
-        backgroundColor: '#1a1a2e',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
         color: 'white',
-        padding: '0.75rem 1.5rem',
-        borderBottom: '2px solid #0f3460',
+        padding: '1.25rem 2rem',
+        borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(10px)'
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 600 }}>RFP 요구사항 관리</h1>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'white' }}>카드 너비:</span>
-            <input
-              type="range"
-              min="800"
-              max="2000"
-              step="50"
-              value={cardWidth}
-              onChange={(e) => setCardWidth(Number(e.target.value))}
-              style={{
-                width: '150px',
-                cursor: 'pointer'
-              }}
-            />
-            <span style={{ fontSize: '0.85rem', color: 'white', minWidth: '60px' }}>{cardWidth}px</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'white' }}>왼쪽 너비:</span>
-            <input
-              type="range"
-              min="200"
-              max="500"
-              step="10"
-              value={leftColumnWidth}
-              onChange={(e) => setLeftColumnWidth(Number(e.target.value))}
-              style={{
-                width: '150px',
-                cursor: 'pointer'
-              }}
-            />
-            <span style={{ fontSize: '0.85rem', color: 'white', minWidth: '60px' }}>{leftColumnWidth}px</span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
+        <h1 style={{
+          margin: 0,
+          fontSize: '1.5rem',
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          letterSpacing: '-0.5px'
+        }}>RFP 요구사항 관리</h1>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
               onClick={expandAll}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#0f3460',
-                color: 'white',
-                border: '1px solid #3a5f8f',
+                backgroundColor: '#334155',
+                color: '#e2e8f0',
+                border: '1px solid #475569',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
                 fontWeight: 500,
                 transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#475569'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#334155'
               }}
             >
               전체 펼치기
@@ -235,19 +257,24 @@ function App() {
               onClick={collapseAll}
               style={{
                 padding: '0.5rem 1rem',
-                backgroundColor: '#0f3460',
-                color: 'white',
-                border: '1px solid #3a5f8f',
+                backgroundColor: '#334155',
+                color: '#e2e8f0',
+                border: '1px solid #475569',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.85rem',
                 fontWeight: 500,
                 transition: 'all 0.2s'
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#475569'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#334155'
+              }}
             >
               전체 닫기
             </button>
-          </div>
         </div>
       </header>
 
@@ -255,7 +282,7 @@ function App() {
         flex: 1,
         padding: '1.5rem',
         overflowY: 'auto',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: '#1e293b'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           {requirements.map((req, index) => {
@@ -276,20 +303,26 @@ function App() {
                 <div
                   id={`req-card-${index}`}
                   style={{
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    padding: '1.5rem',
-                    backgroundColor: 'white',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(51, 65, 85, 0.5)',
+                    borderRadius: '16px',
+                    padding: '2rem',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(148, 163, 184, 0.1)',
                     display: 'grid',
                     gridTemplateColumns: (collapsedLeftColumns.has(index) || autoCollapsedLeft)
                       ? `40px 1fr auto`
                       : `${leftColumnWidth}px 1fr auto`,
                     gap: '2rem',
-                    transition: isResizing ? 'none' : 'grid-template-columns 0.3s, width 0.3s',
+                    transition: isResizing ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     width: hasAnyTaskCards ? `${globalRfpWidth}px` : `${cardWidth}px`,
                     minWidth: hasAnyTaskCards ? '400px' : undefined,
                     flexShrink: 0
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(96, 165, 250, 0.2)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(148, 163, 184, 0.1)'
                   }}
                 >
               {(collapsedLeftColumns.has(index) || autoCollapsedLeft) ? (
@@ -298,18 +331,26 @@ function App() {
                     onClick={() => toggleLeftColumn(index)}
                     style={{
                       padding: '0.5rem',
-                      backgroundColor: '#f3f4f6',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #475569',
+                      borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '1.2rem',
-                      color: '#374151',
+                      color: '#94a3b8',
                       transition: 'all 0.2s',
                       width: '40px',
                       height: '40px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#334155'
+                      e.currentTarget.style.color = '#e2e8f0'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#1e293b'
+                      e.currentTarget.style.color = '#94a3b8'
                     }}
                   >
                     ▶
@@ -323,24 +364,24 @@ function App() {
                   gap: '0.5rem',
                   marginBottom: '1rem',
                   paddingBottom: '0.75rem',
-                  borderBottom: '1px solid #e5e7eb'
+                  borderBottom: '1px solid #334155'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>RFP ID</span>
-                    <span style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: 500 }}>{req.rfpId}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>RFP ID</span>
+                    <span style={{ fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 500 }}>{req.rfpId}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>요구사항 ID</span>
-                    <span style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: 500 }}>{req.requirementId}</span>
+                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>요구사항 ID</span>
+                    <span style={{ fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 500 }}>{req.requirementId}</span>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#111827', marginBottom: '0.25rem' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.25rem' }}>
                       {req.name}
                     </div>
-                    <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                    <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
                       {req.definition}
                     </div>
                   </div>
@@ -348,14 +389,22 @@ function App() {
                     onClick={() => toggleLeftColumn(index)}
                     style={{
                       padding: '0.4rem 0.6rem',
-                      backgroundColor: '#f3f4f6',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #475569',
+                      borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '1rem',
-                      color: '#374151',
+                      color: '#94a3b8',
                       transition: 'all 0.2s',
                       marginLeft: '1rem'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#334155'
+                      e.currentTarget.style.color = '#e2e8f0'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#1e293b'
+                      e.currentTarget.style.color = '#94a3b8'
                     }}
                   >
                     ◀
@@ -364,27 +413,88 @@ function App() {
               </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
                 <div>
                   <div style={{
-                    fontSize: '0.85rem',
+                    fontSize: '0.8rem',
                     fontWeight: 600,
-                    color: '#0f3460',
-                    marginBottom: '0.5rem',
+                    color: '#60a5fa',
+                    marginBottom: '0.75rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
+                    letterSpacing: '1px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}>
-                    제안요청내용
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '20px',
+                        height: '2px',
+                        background: 'linear-gradient(90deg, #60a5fa 0%, transparent 100%)'
+                      }} />
+                      제안요청내용
+                    </div>
+                    <button
+                      id={`btn-${index}`}
+                      onClick={() => generateTaskCards(req, index)}
+                      disabled={generatingTasks.has(index)}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: generatingTasks.has(index)
+                          ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+                          : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: generatingTasks.has(index) ? 'not-allowed' : 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        opacity: generatingTasks.has(index) ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!generatingTasks.has(index)) {
+                          e.currentTarget.style.transform = 'translateY(-2px)'
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.4)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!generatingTasks.has(index)) {
+                          e.currentTarget.style.transform = 'translateY(0)'
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
+                        }
+                      }}
+                    >
+                      {generatingTasks.has(index) && (
+                        <span style={{
+                          animation: 'spin 1s linear infinite',
+                          display: 'inline-block'
+                        }}>⚙️</span>
+                      )}
+                      <span>
+                        {generatingTasks.has(index) ? '생성 중...' : '✨ 과업 생성'}
+                      </span>
+                    </button>
                   </div>
                   <div style={{
                     whiteSpace: 'pre-wrap',
-                    lineHeight: '1.7',
-                    color: '#374151',
-                    backgroundColor: '#f9fafb',
-                    padding: '1rem',
-                    borderRadius: '6px',
-                    borderLeft: '3px solid #0f3460',
-                    fontSize: '0.95rem'
+                    lineHeight: '1.8',
+                    color: '#e2e8f0',
+                    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                    padding: '1.25rem',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(51, 65, 85, 0.5)',
+                    borderLeft: '4px solid #60a5fa',
+                    fontSize: '0.95rem',
+                    backdropFilter: 'blur(10px)'
                   }}>
                     {req.requestContent}
                   </div>
@@ -395,22 +505,38 @@ function App() {
                     onClick={() => toggleExpand(index)}
                     style={{
                       width: '100%',
-                      padding: '0.75rem 1rem',
-                      backgroundColor: '#f3f4f6',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
+                      padding: '0.875rem 1.25rem',
+                      background: 'rgba(30, 41, 59, 0.5)',
+                      border: '1px solid rgba(71, 85, 105, 0.5)',
+                      borderRadius: '12px',
                       cursor: 'pointer',
                       fontSize: '0.9rem',
                       fontWeight: 600,
-                      color: '#374151',
+                      color: '#cbd5e1',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(51, 65, 85, 0.5)'
+                      e.currentTarget.style.borderColor = 'rgba(96, 165, 250, 0.5)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)'
+                      e.currentTarget.style.borderColor = 'rgba(71, 85, 105, 0.5)'
+                      e.currentTarget.style.transform = 'translateY(0)'
                     }}
                   >
                     <span>상세 정보 {expandedCards.has(index) ? '숨기기' : '보기'}</span>
-                    <span style={{ fontSize: '1.2rem' }}>{expandedCards.has(index) ? '▲' : '▼'}</span>
+                    <span style={{
+                      fontSize: '0.875rem',
+                      transition: 'transform 0.3s',
+                      transform: expandedCards.has(index) ? 'rotate(180deg)' : 'rotate(0deg)',
+                      display: 'inline-block'
+                    }}>▼</span>
                   </button>
 
                   {expandedCards.has(index) && (
@@ -420,17 +546,18 @@ function App() {
                           <div style={{
                             fontSize: '0.85rem',
                             fontWeight: 600,
-                            color: '#0f3460',
+                            color: '#60a5fa',
                             marginBottom: '0.5rem'
                           }}>
                             기능 제공 기한
                           </div>
                           <div style={{
                             fontSize: '0.95rem',
-                            color: '#374151',
+                            color: '#cbd5e1',
                             padding: '0.5rem 1rem',
-                            backgroundColor: '#f9fafb',
-                            borderRadius: '6px'
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '8px'
                           }}>
                             {req.deadline}
                           </div>
@@ -442,7 +569,7 @@ function App() {
                           <div style={{
                             fontSize: '0.85rem',
                             fontWeight: 600,
-                            color: '#0f3460',
+                            color: '#60a5fa',
                             marginBottom: '0.5rem'
                           }}>
                             이행 의견
@@ -450,10 +577,11 @@ function App() {
                           <div style={{
                             whiteSpace: 'pre-wrap',
                             fontSize: '0.95rem',
-                            color: '#374151',
+                            color: '#cbd5e1',
                             padding: '0.75rem 1rem',
-                            backgroundColor: '#f9fafb',
-                            borderRadius: '6px',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '8px',
                             lineHeight: '1.6'
                           }}>
                             {req.implementationOpinion}
@@ -466,7 +594,7 @@ function App() {
                           <div style={{
                             fontSize: '0.85rem',
                             fontWeight: 600,
-                            color: '#0f3460',
+                            color: '#60a5fa',
                             marginBottom: '0.5rem'
                           }}>
                             PO/BA 의견
@@ -474,10 +602,11 @@ function App() {
                           <div style={{
                             whiteSpace: 'pre-wrap',
                             fontSize: '0.95rem',
-                            color: '#374151',
+                            color: '#cbd5e1',
                             padding: '0.75rem 1rem',
-                            backgroundColor: '#f9fafb',
-                            borderRadius: '6px',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '8px',
                             lineHeight: '1.6'
                           }}>
                             {req.pobaOpinion}
@@ -490,7 +619,7 @@ function App() {
                           <div style={{
                             fontSize: '0.85rem',
                             fontWeight: 600,
-                            color: '#0f3460',
+                            color: '#60a5fa',
                             marginBottom: '0.5rem'
                           }}>
                             기술혁신 의견
@@ -498,10 +627,11 @@ function App() {
                           <div style={{
                             whiteSpace: 'pre-wrap',
                             fontSize: '0.95rem',
-                            color: '#374151',
+                            color: '#cbd5e1',
                             padding: '0.75rem 1rem',
-                            backgroundColor: '#f9fafb',
-                            borderRadius: '6px',
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '8px',
                             lineHeight: '1.6'
                           }}>
                             {req.techInnovationOpinion}
@@ -512,34 +642,6 @@ function App() {
                   )}
                 </div>
               </div>
-
-                  <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: '0.5rem' }}>
-                    <button
-                      id={`btn-${index}`}
-                      onClick={() => generateTaskCards(req, index)}
-                      style={{
-                        padding: '0.75rem 1rem',
-                        backgroundColor: '#0f3460',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#1a4d7a'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#0f3460'
-                      }}
-                    >
-                      과업 생성
-                    </button>
-                  </div>
                 </div>
 
                 {hasAnyTaskCards && (
@@ -548,38 +650,56 @@ function App() {
                     <div
                       onMouseDown={handleMouseDown}
                       style={{
-                        width: '8px',
+                        width: '16px',
                         cursor: 'col-resize',
-                        backgroundColor: isResizing ? '#667eea' : '#e5e7eb',
-                        transition: 'background-color 0.2s',
+                        backgroundColor: 'transparent',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         flexShrink: 0,
-                        position: 'relative'
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                       onMouseEnter={(e) => {
-                        if (!isResizing) {
-                          e.currentTarget.style.backgroundColor = '#cbd5e1'
+                        const indicator = e.currentTarget.querySelector('.resize-indicator') as HTMLElement
+                        if (indicator) {
+                          indicator.style.opacity = '1'
+                          indicator.style.transform = 'translate(-50%, -50%) scaleY(1.2)'
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isResizing) {
-                          e.currentTarget.style.backgroundColor = '#e5e7eb'
+                          const indicator = e.currentTarget.querySelector('.resize-indicator') as HTMLElement
+                          if (indicator) {
+                            indicator.style.opacity = '0'
+                            indicator.style.transform = 'translate(-50%, -50%) scaleY(1)'
+                          }
                         }
                       }}
                     >
-                      <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: '2px',
-                        height: '40px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                        borderRadius: '1px'
-                      }} />
+                      <div
+                        className="resize-indicator"
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          width: '3px',
+                          height: '60px',
+                          background: isResizing
+                            ? 'linear-gradient(180deg, transparent 0%, #3b82f6 20%, #3b82f6 80%, transparent 100%)'
+                            : 'linear-gradient(180deg, transparent 0%, #60a5fa 20%, #60a5fa 80%, transparent 100%)',
+                          borderRadius: '3px',
+                          opacity: isResizing ? '1' : '0',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: isResizing ? '0 0 12px rgba(59, 130, 246, 0.6)' : '0 0 8px rgba(96, 165, 250, 0.4)',
+                          pointerEvents: 'none'
+                        }}
+                      />
                     </div>
 
                     {/* 과업 영역 */}
-                    {relatedTasks.length > 0 && (
+                    {(relatedTasks.length > 0 || generatingTasks.has(index)) && (
                     <div style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -588,47 +708,105 @@ function App() {
                       minWidth: '400px',
                       padding: '0 0 0 2rem'
                     }}>
+                    {/* 상태 표시 또는 과업 헤더 */}
+                    {generatingTasks.has(index) ? (
+                      <div style={{
+                        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                        color: 'white',
+                        padding: '1.25rem 2rem',
+                        borderRadius: '16px',
+                        fontSize: '0.95rem',
+                        fontWeight: 600,
+                        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.2)',
+                        textAlign: 'center',
+                        letterSpacing: '0.3px',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.1) 50%, transparent 100%)',
+                          animation: 'shimmer 2s infinite',
+                          pointerEvents: 'none'
+                        }} />
+                        <span style={{ position: 'relative', zIndex: 1 }}>
+                          🤖 {generationStatus.get(index) || 'AI 분석 중...'}
+                        </span>
+                      </div>
+                    ) : (
                     <div
                       onClick={() => toggleTaskView(index)}
                       style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
                         color: 'white',
-                        padding: '1rem 1.5rem',
-                        borderRadius: '10px',
+                        padding: '1.25rem 2rem',
+                        borderRadius: '16px',
                         fontSize: '1rem',
                         fontWeight: 700,
-                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                        boxShadow: '0 6px 20px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.3)',
                         textAlign: 'center',
-                        letterSpacing: '0.5px',
+                        letterSpacing: '0.3px',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        border: 'none',
+                        position: 'relative',
+                        overflow: 'hidden'
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.02)'
+                        e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'
+                        e.currentTarget.style.boxShadow = '0 10px 30px rgba(59, 130, 246, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.4)'
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)'
+                        e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.3)'
                       }}
                     >
-                      {collapsedTaskViews.has(index)
-                        ? `✓ 생성된 과업 ${relatedTasks.length}개 (클릭하여 열기)`
-                        : `✓ 생성된 과업 ${relatedTasks.length}개 (클릭하여 닫기)`
-                      }
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)',
+                        pointerEvents: 'none'
+                      }} />
+                      <span style={{ position: 'relative', zIndex: 1 }}>
+                        {collapsedTaskViews.has(index)
+                          ? `📋 ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 열기)`
+                          : `📋 ${req.requirementId}의 과업 ${relatedTasks.length}개 (클릭하여 닫기)`
+                        }
+                      </span>
                     </div>
-                    {!collapsedTaskViews.has(index) && (
+                    )}
+                    {!collapsedTaskViews.has(index) && relatedTasks.length > 0 && (
                     <>
                     {relatedTasks.map((task, taskIndex) => (
                       <div
                         key={task.id}
                         style={{
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
-                          border: '2px solid #667eea',
-                          borderRadius: '12px',
-                          padding: '1.5rem',
-                          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)',
-                          transition: 'all 0.3s',
+                          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                          border: '1px solid rgba(51, 65, 85, 0.5)',
+                          borderRadius: '16px',
+                          padding: '1.75rem',
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                           position: 'relative',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          animation: 'fadeInUp 0.5s ease-out',
+                          animationDelay: `${taskIndex * 0.1}s`,
+                          animationFillMode: 'backwards'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.3)'
+                          e.currentTarget.style.transform = 'translateY(-4px)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(59, 130, 246, 0.1)'
+                          e.currentTarget.style.transform = 'translateY(0)'
                         }}
                       >
                         <div style={{
@@ -636,20 +814,22 @@ function App() {
                           top: 0,
                           left: 0,
                           width: '100%',
-                          height: '4px',
-                          background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                          height: '3px',
+                          background: 'linear-gradient(90deg, #3b82f6 0%, #1e40af 50%, transparent 100%)',
+                          opacity: 0.8
                         }} />
 
                         <div style={{
                           display: 'inline-block',
-                          backgroundColor: '#667eea',
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
                           color: 'white',
                           padding: '0.25rem 0.75rem',
                           borderRadius: '20px',
                           fontSize: '0.75rem',
                           fontWeight: 700,
                           marginBottom: '1rem',
-                          letterSpacing: '0.5px'
+                          letterSpacing: '0.5px',
+                          boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
                         }}>
                           TASK #{taskIndex + 1}
                         </div>
@@ -657,45 +837,46 @@ function App() {
                         <div style={{
                           marginBottom: '1rem',
                           paddingBottom: '1rem',
-                          borderBottom: '1px dashed #e0e7ff'
+                          borderBottom: '1px dashed #334155'
                         }}>
-                          <div style={{ fontSize: '0.8rem', color: '#8b92b0', marginBottom: '0.25rem', fontWeight: 600 }}>
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 600 }}>
                             과업 ID
                           </div>
-                          <div style={{ fontWeight: 700, color: '#667eea', fontSize: '1.1rem' }}>
+                          <div style={{ fontWeight: 700, color: '#60a5fa', fontSize: '1.1rem' }}>
                             {task.id}
                           </div>
                         </div>
 
                         <div style={{
-                          backgroundColor: '#f0f4ff',
+                          backgroundColor: '#1e293b',
                           borderRadius: '8px',
                           padding: '1rem',
                           marginBottom: '1rem',
                           display: 'grid',
                           gridTemplateColumns: '1fr 1fr',
-                          gap: '1rem'
+                          gap: '1rem',
+                          border: '1px solid #334155'
                         }}>
                           <div>
-                            <div style={{ fontSize: '0.75rem', color: '#8b92b0', marginBottom: '0.25rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 600, textTransform: 'uppercase' }}>
                               기능 대분류
                             </div>
-                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a2e' }}>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#e2e8f0' }}>
                               {task.majorCategory}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#667eea', marginTop: '0.25rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '0.25rem' }}>
                               [{task.majorCategoryId}]
                             </div>
                           </div>
 
                           <div>
-                            <div style={{ fontSize: '0.75rem', color: '#8b92b0', marginBottom: '0.25rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem', fontWeight: 600, textTransform: 'uppercase' }}>
                               상세 기능
                             </div>
-                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a2e' }}>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#e2e8f0' }}>
                               {task.detailFunction}
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#667eea', marginTop: '0.25rem' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '0.25rem' }}>
                               [{task.detailFunctionId}]
                             </div>
                           </div>
@@ -703,15 +884,15 @@ function App() {
 
                         <div style={{
                           marginBottom: '1rem',
-                          backgroundColor: '#fff',
+                          backgroundColor: '#0f172a',
                           padding: '0.75rem 1rem',
                           borderRadius: '8px',
-                          border: '1px solid #e0e7ff'
+                          border: '1px solid #334155'
                         }}>
-                          <div style={{ fontSize: '0.75rem', color: '#8b92b0', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase' }}>
                             세부 기능
                           </div>
-                          <div style={{ fontSize: '0.95rem', color: '#1a1a2e', fontWeight: 500, lineHeight: '1.5' }}>
+                          <div style={{ fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 500, lineHeight: '1.5' }}>
                             {task.subFunction}
                           </div>
                         </div>
@@ -719,7 +900,7 @@ function App() {
                         <div>
                           <div style={{
                             fontSize: '0.75rem',
-                            color: '#8b92b0',
+                            color: '#94a3b8',
                             marginBottom: '0.75rem',
                             fontWeight: 600,
                             textTransform: 'uppercase',
@@ -731,18 +912,18 @@ function App() {
                               display: 'inline-block',
                               width: '3px',
                               height: '14px',
-                              backgroundColor: '#667eea',
+                              background: 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)',
                               borderRadius: '2px'
                             }} />
                             과업 내용 요약
                           </div>
                           <div style={{
                             fontSize: '0.95rem',
-                            color: '#1a1a2e',
+                            color: '#cbd5e1',
                             padding: '1rem 1.25rem',
-                            backgroundColor: '#fafbff',
+                            backgroundColor: '#1e293b',
                             borderRadius: '8px',
-                            border: '2px solid #e0e7ff',
+                            border: '2px solid #334155',
                             lineHeight: '1.7',
                             fontWeight: 500
                           }}>
