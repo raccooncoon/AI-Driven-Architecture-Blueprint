@@ -15,7 +15,7 @@ export const TypewriterText: React.FC<TypewriterTextProps> = ({
   const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    let timeoutId: any;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let index = 0;
 
     const startTyping = () => {

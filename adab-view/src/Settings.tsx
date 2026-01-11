@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getModelConfigs, updateModelConfig, type ModelConfig } from './api';
+import { getModelConfigs, updateModelConfig, isAxiosError, type ModelConfig } from './api';
 import { ModelCard } from './components/ModelCard';
 
 interface SettingsProps {
@@ -44,9 +44,15 @@ function Settings({ onBack }: SettingsProps = {}) {
       setEditingConfig(null);
       if (onBack && updates.isDefault) onBack();
       alert('✅ 설정이 저장되었습니다.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('설정 저장 실패:', err);
-      alert(`❌ 저장 실패: ${err.response?.data?.message || err.message}`);
+      let message = '알 수 없는 에러가 발생했습니다.';
+      if (isAxiosError(err)) {
+        message = err.response?.data?.message || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      alert(`❌ 저장 실패: ${message}`);
     } finally {
       setSaving(null);
     }
@@ -66,16 +72,20 @@ function Settings({ onBack }: SettingsProps = {}) {
       } else {
         alert(`❌ 연결 실패\n\n${result.error || '알 수 없는 오류'}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('테스트 실패:', err);
-      alert(`❌ 연결 테스트 실패\n\n${err.message}`);
+      let message = '연결 테스트 중 오류가 발생했습니다.';
+      if (err instanceof Error) {
+        message = err.message;
+      }
+      alert(`❌ 연결 테스트 실패\n\n${message}`);
     } finally {
       setTesting(null);
     }
   };
 
   const startEditing = (name: string) => {
-    const config = configs.find(c => c.name === name);
+    const config = configs.find((c: ModelConfig) => c.name === name);
     if (config) {
       setEditingConfig({ ...config });
     } else {
@@ -119,7 +129,7 @@ function Settings({ onBack }: SettingsProps = {}) {
             <ModelCard
               key={model.name}
               model={model}
-              config={configs.find(c => c.name === model.name)}
+              config={configs.find((c: ModelConfig) => c.name === model.name)}
               isEditing={editingConfig?.name === model.name}
               editingConfig={editingConfig}
               onStartEditing={startEditing}

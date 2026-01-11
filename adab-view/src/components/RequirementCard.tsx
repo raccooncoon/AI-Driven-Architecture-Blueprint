@@ -1,9 +1,9 @@
 import React from 'react';
-import type { TaskCard as TaskCardType } from '../api';
+import type { TaskCard as TaskCardType, Requirement } from '../api';
 import { TaskCard } from './TaskCard';
 
 interface RequirementCardProps {
-  req: any;
+  req: Requirement;
   index: number;
   relatedTasks: TaskCardType[];
   isGenerating: boolean;
@@ -13,14 +13,8 @@ interface RequirementCardProps {
   onGenerateTasks: () => void;
   onStartEditing: () => void;
   isEditing: boolean;
-  editingContent: {
-    requestContent: string;
-    deadline: string;
-    implementationOpinion: string;
-    pobaOpinion: string;
-    techInnovationOpinion: string;
-  };
-  setEditingContent: (updates: any) => void;
+  editingContent: Partial<Requirement>;
+  setEditingContent: (updates: Partial<Requirement>) => void;
   onSaveEditing: () => void;
   onCancelEditing: () => void;
   hasAnyTaskCards: boolean;
@@ -367,7 +361,7 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
                   fontWeight: 800,
                   border: '1px solid rgba(59, 130, 246, 0.3)',
                   transition: 'all 0.2s ease'
-                } as any}
+                } as React.CSSProperties}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)';
                   e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';

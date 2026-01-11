@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { generateTasksWithBackend, checkTasksExist, deleteTasksByRequirement } from '../api';
-import type { TaskCard } from '../api';
+import type { TaskCard, Requirement } from '../api';
 
 export const useTaskGeneration = (
-  requirements: any[],
+  requirements: Requirement[],
   setTaskCards: React.Dispatch<React.SetStateAction<TaskCard[]>>,
   taskCards: TaskCard[]
 ) => {
@@ -12,7 +12,7 @@ export const useTaskGeneration = (
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
-  const generateTaskCards = useCallback(async (req: any, index: number) => {
+  const generateTaskCards = useCallback(async (req: Requirement, index: number) => {
     if (generatingTasks.has(index)) return;
 
     try {
@@ -69,7 +69,7 @@ export const useTaskGeneration = (
           });
         }
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('과업 생성 요청 실패:', err);
       setGeneratingTasks(prev => {
         const next = new Set(prev);
@@ -163,7 +163,7 @@ export const useTaskGeneration = (
 
               resolve();
             },
-            (error) => {
+            (error: Error) => {
               console.error(`요구사항 ${req.requirementId} 과업 생성 실패:`, error);
               setGeneratingTasks(prev => {
                 const next = new Set(prev);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getCurrentModelName, uploadRequirementsBatch, updateRequirement } from './api';
+import { getCurrentModelName, uploadRequirementsBatch, updateRequirement, isAxiosError } from './api';
 import Settings from './Settings';
 import { useRequirements } from './hooks/useRequirements';
 import { useTaskGeneration } from './hooks/useTaskGeneration';
@@ -98,16 +98,22 @@ function App() {
       const result = await uploadRequirementsBatch(file);
       alert(`✅ ${result.message || '업로드 성공!'}\n${result.count}건의 요구사항이 저장되었습니다.`);
       refetch();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('파일 업로드 실패:', err);
-      alert(`❌ 업로드 실패: ${err.response?.data?.message || err.message}`);
+      let message = '업로드 중 오류가 발생했습니다.';
+      if (isAxiosError(err)) {
+        message = err.response?.data?.message || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      alert(`❌ 업로드 실패: ${message}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const startEditing = (index: number, req: any) => {
+  const startEditing = (index: number, req: import('./api').Requirement) => {
     setEditingIndex(index);
     setEditingContent({
       requestContent: req.requestContent,
@@ -118,7 +124,7 @@ function App() {
     });
   };
 
-  const saveEditing = async (req: any, index: number) => {
+  const saveEditing = async (req: import('./api').Requirement, index: number) => {
     try {
       const updatedReq = { ...req, ...editingContent };
       await updateRequirement(req.requirementId, updatedReq);
@@ -127,9 +133,15 @@ function App() {
       );
       setEditingIndex(null);
       alert('✅ 수정이 완료되었습니다.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('수정 실패:', err);
-      alert(`❌ 수정 실패: ${err.response?.data?.message || err.message}`)
+      let message = '수정 처리 중 오류가 발생했습니다.';
+      if (isAxiosError(err)) {
+        message = err.response?.data?.message || err.message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
+      alert(`❌ 수정 실패: ${message}`)
     }
   };
 
@@ -257,7 +269,7 @@ function App() {
                   onStartEditing={() => startEditing(index, req)}
                   isEditing={editingIndex === index}
                   editingContent={editingContent}
-                  setEditingContent={(updates: any) => setEditingContent(prev => ({ ...prev, ...updates }))}
+                  setEditingContent={(updates: Partial<import('./api').Requirement>) => setEditingContent(prev => ({ ...prev, ...updates }))}
                   onSaveEditing={() => saveEditing(req, index)}
                   onCancelEditing={() => setEditingIndex(null)}
                   hasAnyTaskCards={relatedTasks.length > 0}

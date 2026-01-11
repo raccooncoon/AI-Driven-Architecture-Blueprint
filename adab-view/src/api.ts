@@ -1,11 +1,15 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+
+export const isAxiosError = (error: unknown): error is AxiosError<{ message?: string }> => {
+  return axios.isAxiosError(error);
+};
 
 export const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   timeout: 10000,
 });
 
-export const getRequirements = async () => {
+export const getRequirements = async (): Promise<Requirement[]> => {
     const response = await api.get('/requirements');
     return response.data;
 };
@@ -17,7 +21,7 @@ export const getAllTasks = async () => {
 };
 
 // 요구사항 수정
-export const updateRequirement = async (requirementId: string, data: any) => {
+export const updateRequirement = async (requirementId: string, data: Partial<Requirement>) => {
     const response = await api.put(`/requirements/${requirementId}`, data);
     return response.data;
 };
@@ -33,6 +37,20 @@ export const uploadRequirementsBatch = async (file: File) => {
     });
     return response.data;
 };
+
+export type Requirement = {
+  requirementId: string;
+  rfpId?: string;
+  name?: string;
+  definition?: string;
+  requestContent: string;
+  deadline?: string;
+  implementationOpinion?: string;
+  pobaOpinion?: string;
+  techInnovationOpinion?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type TaskCard = {
   id: string;
@@ -102,7 +120,7 @@ export const deleteTasksByRequirement = async (requirementId: string): Promise<{
 
 // 과업 생성
 export const generateTasksWithBackend = async (
-  requirement: any,
+  requirement: Requirement & { index: number },
   onStatus: (message: string) => void,
   onTask: (task: TaskCard) => void,
   onComplete: () => void,
@@ -119,12 +137,14 @@ export const generateTasksWithBackend = async (
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      onError(new Error(`HTTP error! status: ${response.status}`));
+      return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      throw new Error('응답 스트림을 읽을 수 없습니다');
+      onError(new Error('응답 스트림을 읽을 수 없습니다'));
+      return;
     }
 
     const decoder = new TextDecoder();
@@ -150,30 +170,30 @@ export const generateTasksWithBackend = async (
         if (line.startsWith('data:')) {
           const data = line.substring(5).trim();
 
+          let parsed;
           try {
-            const parsed = JSON.parse(data);
+            parsed = JSON.parse(data);
+          } catch (e) {
+            console.error('SSE 파싱 에러:', e, data);
+            continue;
+          }
 
-            // status 이벤트
-            if (currentEventType === 'status' || (parsed.message && !parsed.id)) {
-              onStatus(parsed.message);
-            }
-            // task 이벤트
-            else if (currentEventType === 'task' || parsed.id) {
-              onTask(parsed as TaskCard);
-            }
-            // complete 이벤트
-            else if (currentEventType === 'complete') {
-              onStatus(parsed.message);
-            }
-            // error 이벤트
-            else if (currentEventType === 'error') {
-              throw new Error(parsed.message || '과업 생성 중 오류 발생');
-            }
-          } catch (e: any) {
-            if (e.message && e.message !== 'SSE 파싱 에러') {
-              throw e;
-            }
-            console.error('SSE 파싱 에러:', e);
+          // status 이벤트
+          if (currentEventType === 'status' || (parsed.message && !parsed.id)) {
+            onStatus(parsed.message);
+          }
+          // task 이벤트
+          else if (currentEventType === 'task' || parsed.id) {
+            onTask(parsed as TaskCard);
+          }
+          // complete 이벤트
+          else if (currentEventType === 'complete') {
+            onStatus(parsed.message);
+          }
+          // error 이벤트
+          else if (currentEventType === 'error') {
+            onError(new Error(parsed.message || '과업 생성 중 오류 발생'));
+            return;
           }
 
           currentEventType = '';
