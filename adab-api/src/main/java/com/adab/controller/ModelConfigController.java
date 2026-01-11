@@ -16,6 +16,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/model-configs")
 @RequiredArgsConstructor
+@CrossOrigin(origins = { "http://localhost:5173", "http://localhost" })
 @Slf4j
 public class ModelConfigController {
 

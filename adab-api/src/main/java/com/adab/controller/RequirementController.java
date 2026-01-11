@@ -4,6 +4,7 @@ import com.adab.dto.requirement.BatchUploadResponse;
 import com.adab.dto.requirement.RequirementResponse;
 import com.adab.service.requirement.RequirementService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,6 +14,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/requirements")
 @RequiredArgsConstructor
+@CrossOrigin(origins = { "http://localhost:5173", "http://localhost" })
+@Slf4j
 public class RequirementController {
 
     private final RequirementService requirementService;

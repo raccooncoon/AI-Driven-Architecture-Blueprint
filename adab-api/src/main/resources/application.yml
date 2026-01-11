@@ -24,6 +24,9 @@ spring:
         options:
           model: gemma3:12b
           temperature: 0.7
+  mvc:
+    async:
+      request-timeout: 300000
 
 springdoc:
   api-docs:

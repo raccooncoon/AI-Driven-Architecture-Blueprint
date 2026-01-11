@@ -3,12 +3,7 @@ package com.adab.service.config;
 import com.adab.domain.config.ModelConfig;
 import com.adab.domain.config.ModelConfigRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.ai.ollama.api.OllamaOptions;
@@ -17,15 +12,10 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import reactor.core.publisher.Flux;
+import org.springframework.web.client.RestClient;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -104,7 +94,16 @@ public class DynamicChatModelService {
     private ChatModel createOllamaChatModel(ModelConfig config) {
         String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "http://localhost:11434";
 
-        OllamaApi ollamaApi = new OllamaApi(baseUrl);
+        // 타임아웃 설정을 위한 RequestFactory 생성 (5분)
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(300000);
+        requestFactory.setReadTimeout(300000);
+
+        // RestClient.Builder에 RequestFactory 주입
+        RestClient.Builder restClientBuilder = RestClient.builder()
+                .requestFactory(requestFactory);
+
+        OllamaApi ollamaApi = new OllamaApi(baseUrl, restClientBuilder);
 
         // 기본 옵션 설정
         OllamaOptions options = OllamaOptions.create()

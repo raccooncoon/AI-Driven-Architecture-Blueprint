@@ -57,8 +57,6 @@ services:
         condition: service_started
     networks:
       - adab-network
-    extra_hosts:
-      - "min-sff:host.docker.internal"
 
   adab-frontend:
     build:

@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
 @RestController
 @RequestMapping("/api/tasks")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = { "http://localhost:5173", "http://localhost" })
 @Slf4j
 public class TaskController {
 
@@ -29,7 +29,7 @@ public class TaskController {
     public SseEmitter generateTasks(@RequestBody TaskGenerationRequest request) {
         log.info("Received task generation request for requirement: {}", request.getRequirementId());
 
-        SseEmitter emitter = new SseEmitter(60000L); // 60초 타임아웃
+        SseEmitter emitter = new SseEmitter(300000L); // 5분 타임아웃 (거대 모델 대응)
 
         emitter.onCompletion(() -> log.info("SSE completed for requirement: {}", request.getRequirementId()));
         emitter.onTimeout(() -> log.warn("SSE timeout for requirement: {}", request.getRequirementId()));
