@@ -26,6 +26,16 @@ services:
     networks:
       - adab-network
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: adab-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - adab-network
+
 
   adab-backend:
     build:
@@ -38,7 +48,8 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://adab-postgres:5432/adab_db
       - SPRING_DATASOURCE_USERNAME=user
       - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_AI_OLLAMA_BASE_URL=http://min-sff:11434
+      - SPRING_AI_OLLAMA_BASE_URL=http://adab-ollama:11434
+      - SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL=gemma:2b
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,3 +78,4 @@ networks:
 
 volumes:
   postgres_data:
+  ollama_data:

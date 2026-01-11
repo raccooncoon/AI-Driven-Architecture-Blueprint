@@ -23,6 +23,9 @@ public class ModelConfigService {
     @org.springframework.beans.factory.annotation.Value("${spring.ai.ollama.base-url:http://localhost:11434}")
     private String envOllamaBaseUrl;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.ai.ollama.chat.options.model:gemma3:12b}")
+    private String envOllamaModel;
+
     /**
      * 실행 시 Gemini 모델의 maxTokens 설정을 자동으로 패치 (기존 2048 -> 4096)
      * 또한 모든 모델의 temperature 설정을 기존 0.7에서 0.0으로 패칭
@@ -30,6 +33,8 @@ public class ModelConfigService {
     @PostConstruct
     @Transactional
     public void patchConfigurations() {
+        log.info("ModelConfigService: Initializing patches. envOllamaBaseUrl={}, envOllamaModel={}",
+                envOllamaBaseUrl, envOllamaModel);
         // Gemini maxTokens 패치
         modelConfigRepository.findByName("gemini").ifPresent(config -> {
             if ("2048".equals(config.getMaxTokens()) || config.getMaxTokens() == null) {
@@ -40,7 +45,11 @@ public class ModelConfigService {
         });
 
         // 모든 모델 temperature 패치 (0.0 또는 0.7 또는 null -> 0.1)
+        // 단, Ollama는 외부 서버지원이므로 사용자가 설정한 값을 존중하도록 패치 제외
         modelConfigRepository.findAll().forEach(config -> {
+            if ("ollama".equals(config.getName().toLowerCase()))
+                return;
+
             String temp = config.getTemperature();
             if (temp == null || "0.7".equals(temp) || "0.0".equals(temp)) {
                 log.info("Patching model {} temperature from {} to 0.1", config.getName(), temp);
@@ -49,14 +58,33 @@ public class ModelConfigService {
             }
         });
 
-        // Ollama baseUrl 패치 (localhost나 min-sff 등 로컬 주소인 경우 환경 설정값으로 업데이트)
+        // Ollama 설정 패치 (주소 및 모델명 동기화)
         modelConfigRepository.findByName("ollama").ifPresent(config -> {
-            String dbUrl = config.getBaseUrl();
-            if (dbUrl != null
-                    && (dbUrl.contains("localhost") || dbUrl.contains("127.0.0.1"))) {
-                log.info("Detected local/stale Ollama URL in DB: {}. Patching to environment-aware URL: {}", dbUrl,
-                        envOllamaBaseUrl);
-                config.setBaseUrl(envOllamaBaseUrl);
+            boolean changed = false;
+            String dbUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "";
+
+            // 1. 주소 패치: localhost나 127.0.0.1인 경우에만 내부 컨테이너 주소로 업데이트
+            // min-sff 등 명시적인 외부 호스트명은 사용자의 설정을 존중하여 패치하지 않음
+            if (dbUrl.contains("localhost") || dbUrl.contains("127.0.0.1")) {
+                if (!dbUrl.equals(envOllamaBaseUrl)) {
+                    log.info("Patching local Ollama URL in DB from {} to container URL: {}", dbUrl, envOllamaBaseUrl);
+                    config.setBaseUrl(envOllamaBaseUrl);
+                    changed = true;
+                    dbUrl = envOllamaBaseUrl;
+                }
+            }
+
+            // 2. 모델명 패치: 내부 컨테이너(adab-ollama)를 바라보고 있을 때만 환경 변수의 모델명(gemma:2b)으로 동기화
+            if (dbUrl.contains("adab-ollama")) {
+                if (config.getModelName() == null || !config.getModelName().equals(envOllamaModel)) {
+                    log.info("Synchronizing internal Ollama model to: {} (was {})", envOllamaModel,
+                            config.getModelName());
+                    config.setModelName(envOllamaModel);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
                 modelConfigRepository.save(config);
             }
         });
