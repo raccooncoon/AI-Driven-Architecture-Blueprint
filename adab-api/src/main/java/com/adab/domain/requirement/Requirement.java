@@ -3,7 +3,7 @@ package com.adab.domain.requirement;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "requirements")
-@Getter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -55,13 +55,21 @@ public class Requirement {
     private LocalDateTime updatedAt;
 
     public void update(Requirement updated) {
-        this.rfpId = updated.rfpId;
-        this.name = updated.name;
-        this.definition = updated.definition;
-        this.requestContent = updated.requestContent;
-        this.deadline = updated.deadline;
-        this.implementationOpinion = updated.implementationOpinion;
-        this.pobaOpinion = updated.pobaOpinion;
-        this.techInnovationOpinion = updated.techInnovationOpinion;
+        if (updated.rfpId != null)
+            this.rfpId = updated.rfpId;
+        if (updated.name != null)
+            this.name = updated.name;
+        if (updated.definition != null)
+            this.definition = updated.definition;
+        if (updated.requestContent != null)
+            this.requestContent = updated.requestContent;
+        if (updated.deadline != null)
+            this.deadline = updated.deadline;
+        if (updated.implementationOpinion != null)
+            this.implementationOpinion = updated.implementationOpinion;
+        if (updated.pobaOpinion != null)
+            this.pobaOpinion = updated.pobaOpinion;
+        if (updated.techInnovationOpinion != null)
+            this.techInnovationOpinion = updated.techInnovationOpinion;
     }
 }

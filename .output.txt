@@ -1,0 +1,298 @@
+diff --git a/adab-api/src/main/java/com/adab/service/task/TaskGenerationService.java b/adab-api/src/main/java/com/adab/service/task/TaskGenerationService.java
+index c2997da..5ee0d33 100644
+--- a/adab-api/src/main/java/com/adab/service/task/TaskGenerationService.java
++++ b/adab-api/src/main/java/com/adab/service/task/TaskGenerationService.java
+@@ -240,16 +240,67 @@ public class TaskGenerationService {
+
+             if (matcher.find()) {
+                 String jsonArray = "[" + matcher.group(1) + "]";
++
++                // JSON 문자열 값 내부의 이스케이프되지 않은 줄바꿈 처리
++                // "subFunction": "텍스트\n텍스트" -> "subFunction": "텍스트\\n텍스트"
++                jsonArray = fixUnescapedNewlines(jsonArray);
++
+                 return objectMapper.readValue(jsonArray, new TypeReference<List<Map<String, String>>>() {});
+             }
+
+             return null;
+         } catch (Exception e) {
+             log.error("Failed to parse JSON from LLM response", e);
++            log.error("Response content: {}", response);
+             return null;
+         }
+     }
+
++    /**
++     * JSON 문자열 값 내부의 이스케이프되지 않은 줄바꿈을 이스케이프 처리
++     */
++    private String fixUnescapedNewlines(String json) {
++        StringBuilder result = new StringBuilder();
++        boolean inString = false;
++        boolean escaped = false;
++
++        for (int i = 0; i < json.length(); i++) {
++            char c = json.charAt(i);
++
++            if (escaped) {
++                result.append(c);
++                escaped = false;
++                continue;
++            }
++
++            if (c == '\\') {
++                result.append(c);
++                escaped = true;
++                continue;
++            }
++
++            if (c == '"') {
++                result.append(c);
++                inString = !inString;
++                continue;
++            }
++
++            // 문자열 내부의 줄바꿈 문자를 이스케이프
++            if (inString && (c == '\n' || c == '\r')) {
++                if (c == '\n') {
++                    result.append("\\n");
++                } else if (c == '\r') {
++                    result.append("\\r");
++                }
++                continue;
++            }
++
++            result.append(c);
++        }
++
++        return result.toString();
++    }
++
+     private void sendStatus(SseEmitter emitter, String message) {
+         try {
+             emitter.send(SseEmitter.event()
+diff --git a/adab-view/src/App.tsx b/adab-view/src/App.tsx
+index ce3b69f..a24eb1a 100644
+--- a/adab-view/src/App.tsx
++++ b/adab-view/src/App.tsx
+@@ -52,6 +52,7 @@ function App() {
+   const [editingTechInnovationOpinion, setEditingTechInnovationOpinion] = useState<string>('')
+   const [batchGenerating, setBatchGenerating] = useState(false)
+   const [batchProgress, setBatchProgress] = useState<{current: number, total: number}>({current: 0, total: 0})
++  const [showOnlyNoTasks, setShowOnlyNoTasks] = useState(false)
+
+   // 백엔드에서 요구사항 및 과업 데이터 가져오기
+   useEffect(() => {
+@@ -260,6 +261,90 @@ function App() {
+     alert('✅ 전체 과업 생성이 완료되었습니다!')
+   }
+
++  // 과업 없는 항목만 생성
++  const generateMissingTasks = async () => {
++    if (batchGenerating) return
++
++    // 과업이 없는 요구사항만 필터링
++    const requirementsWithoutTasks = requirements.filter((req, index) => {
++      const relatedTasks = taskCards.filter(t => t.parentIndex === index)
++      return relatedTasks.length === 0
++    })
++
++    if (requirementsWithoutTasks.length === 0) {
++      alert('✅ 모든 요구사항에 과업이 이미 생성되어 있습니다.')
++      return
++    }
++
++    const confirmMessage = `과업이 없는 ${requirementsWithoutTasks.length}개의 요구사항에 대해 순차적으로 과업을 생성합니다.\n\n예상 소요 시간: 약 ${Math.ceil(requirementsWithoutTasks.length * 0.5)}분\n\n계속하시겠습니까?`
++
++    if (!confirm(confirmMessage)) {
++      return
++    }
++
++    setBatchGenerating(true)
++    setBatchProgress({current: 0, total: requirementsWithoutTasks.length})
++
++    for (let i = 0; i < requirementsWithoutTasks.length; i++) {
++      const req = requirementsWithoutTasks[i]
++      const originalIndex = requirements.indexOf(req)
++
++      try {
++        setBatchProgress({current: i + 1, total: requirementsWithoutTasks.length})
++
++        // 과업 생성
++        await new Promise<void>((resolve, reject) => {
++          generateTasksWithBackend(
++            { ...req, index: originalIndex },
++            (message) => {
++              // 상태 업데이트
++              setGenerationStatus(prev => new Map(prev).set(originalIndex, message))
++            },
++            (task) => {
++              // 과업 추가
++              setTaskCards(prev => [...prev, task])
++            },
++            () => {
++              // 완료
++              setGenerationStatus(prev => {
++                const next = new Map(prev)
++                next.delete(originalIndex)
++                return next
++              })
++
++              // 과업이 생성된 위치로 스크롤
++              setTimeout(() => {
++                const rowElement = document.getElementById(`row-${originalIndex}`)
++                if (rowElement) {
++                  rowElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
++                }
++              }, 100)
++
++              resolve()
++            },
++            (error) => {
++              console.error(`요구사항 ${req.requirementId} 과업 생성 실패:`, error)
++              reject(error)
++            }
++          )
++        })
++
++        // 다음 요구사항 처리 전 1초 대기
++        if (i < requirementsWithoutTasks.length - 1) {
++          await new Promise(resolve => setTimeout(resolve, 1000))
++        }
++
++      } catch (error) {
++        console.error(`요구사항 ${req.requirementId} 처리 중 오류:`, error)
++        // 오류가 발생해도 계속 진행
++      }
++    }
++
++    setBatchGenerating(false)
++    setBatchProgress({current: 0, total: 0})
++    alert(`✅ ${requirementsWithoutTasks.length}개 요구사항의 과업 생성이 완료되었습니다!`)
++  }
++
+   // 파일 업로드 핸들러
+   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+     const file = event.target.files?.[0]
+@@ -584,6 +669,30 @@ function App() {
+             <span>🤖</span>
+             <span>{currentModel}</span>
+           </div>
++          {(() => {
++            const requirementsWithoutTasks = requirements.filter(req => {
++              const reqIndex = requirements.indexOf(req)
++              const relatedTasks = taskCards.filter(t => t.parentIndex === reqIndex)
++              return relatedTasks.length === 0
++            })
++            return requirementsWithoutTasks.length > 0 ? (
++              <div style={{
++                padding: '0.5rem 1rem',
++                backgroundColor: 'rgba(239, 68, 68, 0.2)',
++                border: '1px solid #ef4444',
++                borderRadius: '6px',
++                fontSize: '0.75rem',
++                fontWeight: 600,
++                display: 'flex',
++                alignItems: 'center',
++                gap: '0.5rem',
++                color: '#fca5a5'
++              }}>
++                <span>⚠️</span>
++                <span>과업 미생성: {requirementsWithoutTasks.length}건</span>
++              </div>
++            ) : null
++          })()}
+         </div>
+         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+           {batchGenerating && (
+@@ -639,6 +748,39 @@ function App() {
+           >
+             ✨ AI로 전체 과업 생성
+           </button>
++          <button
++            onClick={generateMissingTasks}
++            disabled={batchGenerating || requirements.length === 0}
++            style={{
++              padding: '0.5rem 1rem',
++              background: batchGenerating
++                ? 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
++                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
++              color: 'white',
++              border: 'none',
++              borderRadius: '6px',
++              cursor: batchGenerating || requirements.length === 0 ? 'not-allowed' : 'pointer',
++              fontSize: '0.85rem',
++              fontWeight: 600,
++              transition: 'all 0.2s',
++              opacity: batchGenerating || requirements.length === 0 ? 0.6 : 1,
++              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
++            }}
++            onMouseEnter={(e) => {
++              if (!batchGenerating && requirements.length > 0) {
++                e.currentTarget.style.transform = 'translateY(-2px)'
++                e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)'
++              }
++            }}
++            onMouseLeave={(e) => {
++              if (!batchGenerating) {
++                e.currentTarget.style.transform = 'translateY(0)'
++                e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)'
++              }
++            }}
++          >
++            🔄 과업 없는 항목만 생성
++          </button>
+           <button
+               onClick={() => setCurrentPage('settings')}
+               style={{
+@@ -664,6 +806,39 @@ function App() {
+             >
+               ⚙️ 모델 설정
+             </button>
++          <button
++            onClick={() => setShowOnlyNoTasks(!showOnlyNoTasks)}
++            style={{
++              padding: '0.5rem 1rem',
++              background: showOnlyNoTasks
++                ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
++                : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
++              color: 'white',
++              border: 'none',
++              borderRadius: '6px',
++              cursor: 'pointer',
++              fontSize: '0.85rem',
++              fontWeight: 600,
++              transition: 'all 0.2s',
++              boxShadow: showOnlyNoTasks
++                ? '0 2px 8px rgba(239, 68, 68, 0.3)'
++                : '0 2px 8px rgba(100, 116, 139, 0.3)'
++            }}
++            onMouseEnter={(e) => {
++              e.currentTarget.style.transform = 'translateY(-2px)'
++              e.currentTarget.style.boxShadow = showOnlyNoTasks
++                ? '0 4px 12px rgba(239, 68, 68, 0.4)'
++                : '0 4px 12px rgba(100, 116, 139, 0.4)'
++            }}
++            onMouseLeave={(e) => {
++              e.currentTarget.style.transform = 'translateY(0)'
++              e.currentTarget.style.boxShadow = showOnlyNoTasks
++                ? '0 2px 8px rgba(239, 68, 68, 0.3)'
++                : '0 2px 8px rgba(100, 116, 139, 0.3)'
++            }}
++          >
++            {showOnlyNoTasks ? '📋 전체 보기' : '🔴 과업 없는 항목만'}
++          </button>
+         </div>
+       </header>
+
+@@ -758,6 +933,11 @@ function App() {
+             const relatedTasks = taskCards.filter(t => t.parentIndex === index)
+             const hasAnyTaskCards = taskCards.length > 0
+
++            // 필터링: 과업 없는 항목만 보기 모드일 때 과업이 있으면 스킵
++            if (showOnlyNoTasks && relatedTasks.length > 0) {
++              return null
++            }
++
+             return (
+               <div
+                 key={index}

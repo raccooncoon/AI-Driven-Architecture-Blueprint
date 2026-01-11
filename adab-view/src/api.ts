@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export const api = axios.create({
   baseURL: 'http://localhost:8080/api',
+  timeout: 10000,
 });
 
 export const getRequirements = async () => {
@@ -44,6 +45,7 @@ export type TaskCard = {
   detailFunction: string;
   subFunction: string;
   generatedBy?: string;
+  isNew?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
