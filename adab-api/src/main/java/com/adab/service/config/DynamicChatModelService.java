@@ -139,7 +139,7 @@ public class DynamicChatModelService {
         }
 
         String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "https://api.anthropic.com";
-        Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.7f;
+        Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.1f;
         Integer maxTokens = config.getMaxTokens() != null ? Integer.parseInt(config.getMaxTokens()) : 4096;
 
         return new ClaudeChatModel(
@@ -157,7 +157,7 @@ public class DynamicChatModelService {
 
         String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl()
                 : "https://generativelanguage.googleapis.com";
-        Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.7f;
+        Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.1f;
         Integer maxTokens = config.getMaxTokens() != null ? Integer.parseInt(config.getMaxTokens()) : 4096;
 
         return new GeminiChatModel(

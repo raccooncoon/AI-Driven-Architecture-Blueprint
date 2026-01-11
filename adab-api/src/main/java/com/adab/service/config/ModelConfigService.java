@@ -22,14 +22,26 @@ public class ModelConfigService {
 
     /**
      * 실행 시 Gemini 모델의 maxTokens 설정을 자동으로 패치 (기존 2048 -> 4096)
+     * 또한 모든 모델의 temperature 설정을 기존 0.7에서 0.0으로 패칭
      */
     @PostConstruct
     @Transactional
-    public void patchGeminiMaxTokens() {
+    public void patchConfigurations() {
+        // Gemini maxTokens 패치
         modelConfigRepository.findByName("gemini").ifPresent(config -> {
             if ("2048".equals(config.getMaxTokens()) || config.getMaxTokens() == null) {
                 log.info("Patching existing Gemini maxTokens from {} to 4096", config.getMaxTokens());
                 config.setMaxTokens("4096");
+                modelConfigRepository.save(config);
+            }
+        });
+
+        // 모든 모델 temperature 패치 (0.0 또는 0.7 또는 null -> 0.1)
+        modelConfigRepository.findAll().forEach(config -> {
+            String temp = config.getTemperature();
+            if (temp == null || "0.7".equals(temp) || "0.0".equals(temp)) {
+                log.info("Patching model {} temperature from {} to 0.1", config.getName(), temp);
+                config.setTemperature("0.1");
                 modelConfigRepository.save(config);
             }
         });

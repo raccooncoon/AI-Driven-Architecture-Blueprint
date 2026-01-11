@@ -100,7 +100,7 @@ function Settings({ onBack }: SettingsProps = {}) {
         baseUrl: name === 'ollama' ? 'http://localhost:11434' : 
                  name === 'claude' ? 'https://api.anthropic.com' : 
                  name === 'gemini' ? 'https://generativelanguage.googleapis.com' : '',
-        temperature: '0.7',
+        temperature: '0.1',
         maxTokens: name === 'claude' ? '4096' : '4096'
       });
     }
