@@ -118,6 +118,12 @@ export const deleteTasksByRequirement = async (requirementId: string): Promise<{
   return response.data;
 };
 
+// 시스템 전체 과업 일괄 삭제
+export const deleteAllTasks = async (): Promise<{ success: boolean; message: string; deletedCount: number }> => {
+  const response = await api.delete('/tasks/all');
+  return response.data;
+};
+
 // 과업 생성
 export const generateTasksWithBackend = async (
   requirement: Requirement & { index: number },

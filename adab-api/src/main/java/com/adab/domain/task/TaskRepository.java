@@ -45,6 +45,12 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.uuid = :uuid AND t.deleted = false")
     int softDeleteByUuid(String uuid, LocalDateTime deletedAt);
 
+    // 소프트 삭제 (전체)
+    @Modifying
+    @Transactional
+    @Query("UPDATE Task t SET t.deleted = true, t.deletedAt = :deletedAt WHERE t.deleted = false")
+    int softDeleteAll(LocalDateTime deletedAt);
+
     // 실제 삭제 (기존 호환성 유지)
     @Modifying
     @Transactional

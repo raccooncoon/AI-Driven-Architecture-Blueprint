@@ -1,12 +1,10 @@
 package com.adab.service.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -16,34 +14,20 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class ClaudeChatModel implements ChatModel {
+public class ClaudeChatModel extends AbstractHttpChatModel {
 
     private static final String DEFAULT_API_URL = "https://api.anthropic.com/v1/messages";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
 
-    private final String apiKey;
-    private final String model;
-    private final String baseUrl;
-    private final Float temperature;
-    private final Integer maxTokens;
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
-
     public ClaudeChatModel(String apiKey, String model, String baseUrl, Float temperature, Integer maxTokens) {
-        this.apiKey = apiKey;
-        this.model = model;
-        this.baseUrl = baseUrl != null ? baseUrl : DEFAULT_API_URL;
-        this.temperature = temperature;
-        this.maxTokens = maxTokens != null ? maxTokens : 4096;
-        this.restTemplate = new RestTemplate();
-        this.objectMapper = new ObjectMapper();
+        super(apiKey, model, baseUrl != null ? baseUrl : DEFAULT_API_URL, temperature,
+                maxTokens != null ? maxTokens : 4096);
     }
 
     @Override

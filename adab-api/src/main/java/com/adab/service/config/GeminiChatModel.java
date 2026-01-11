@@ -14,31 +14,17 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class GeminiChatModel implements ChatModel {
-
-    private final String apiKey;
-    private final String model;
-    private final String baseUrl;
-    private final Float temperature;
-    private final Integer maxTokens;
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
+public class GeminiChatModel extends AbstractHttpChatModel {
 
     public GeminiChatModel(String apiKey, String model, String baseUrl, Float temperature, Integer maxTokens) {
-        this.apiKey = apiKey;
-        this.model = model;
-        this.baseUrl = baseUrl != null ? baseUrl : "https://generativelanguage.googleapis.com";
-        this.temperature = temperature;
-        this.maxTokens = maxTokens;
-        this.restTemplate = new RestTemplate();
-        this.objectMapper = new ObjectMapper();
+        super(apiKey, model, baseUrl != null ? baseUrl : "https://generativelanguage.googleapis.com", temperature,
+                maxTokens);
     }
 
     @Override

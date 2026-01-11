@@ -138,14 +138,13 @@ public class DynamicChatModelService {
             throw new RuntimeException("Claude API 키가 설정되지 않았습니다.");
         }
 
-        String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "https://api.anthropic.com";
         Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.1f;
         Integer maxTokens = config.getMaxTokens() != null ? Integer.parseInt(config.getMaxTokens()) : 4096;
 
         return new ClaudeChatModel(
                 config.getApiKey(),
                 config.getModelName(),
-                baseUrl,
+                config.getBaseUrl(),
                 temperature,
                 maxTokens);
     }
@@ -155,15 +154,13 @@ public class DynamicChatModelService {
             throw new RuntimeException("Gemini API 키가 설정되지 않았습니다.");
         }
 
-        String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl()
-                : "https://generativelanguage.googleapis.com";
         Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.1f;
         Integer maxTokens = config.getMaxTokens() != null ? Integer.parseInt(config.getMaxTokens()) : 4096;
 
         return new GeminiChatModel(
                 config.getApiKey(),
                 config.getModelName(),
-                baseUrl,
+                config.getBaseUrl(),
                 temperature,
                 maxTokens);
     }

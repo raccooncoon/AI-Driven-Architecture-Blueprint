@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getCurrentModelName, uploadRequirementsBatch, updateRequirement, isAxiosError } from './api';
+import { getCurrentModelName, uploadRequirementsBatch, updateRequirement, isAxiosError, deleteAllTasks } from './api';
 import Settings from './Settings';
 import { useRequirements } from './hooks/useRequirements';
 import { useTaskGeneration } from './hooks/useTaskGeneration';
@@ -145,6 +145,21 @@ function App() {
     }
   };
 
+  const handleDeleteAllTasks = async () => {
+    if (!window.confirm('모든 과업을 삭제하시겠습니까? (이 작업은 되돌릴 수 없지만, 데이터베이스에는 소프트 삭제로 기록됩니다.)')) {
+      return;
+    }
+
+    try {
+      await deleteAllTasks();
+      setTaskCards([]);
+      alert('✅ 모든 과업이 삭제되었습니다.');
+    } catch (err: unknown) {
+      console.error('전체 과업 삭제 실패:', err);
+      alert('❌ 과업 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   const toggleTaskView = (id: string) => {
     setCollapsedTaskViews(prev => {
       const next = new Set(prev);
@@ -228,26 +243,51 @@ function App() {
                     등록된 모든 요구사항에 대해 AI 분석 및 비즈니스 과업 생성을 시작합니다.
                   </div>
                 </div>
-                <button
-                  onClick={generateSequentialTasks}
-                  disabled={batchGenerating}
-                  style={{
-                    padding: '0.8rem 1.5rem',
-                    background: batchGenerating 
-                      ? '#475569' 
-                      : 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: batchGenerating ? 'not-allowed' : 'pointer',
-                    fontWeight: 700,
-                    fontSize: '0.95rem',
-                    boxShadow: '0 4px 15px rgba(168, 85, 247, 0.4)',
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  {batchGenerating ? '⏳ 분석 중...' : '전체 순차 생성 시작'}
-                </button>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    onClick={handleDeleteAllTasks}
+                    disabled={batchGenerating}
+                    style={{
+                      padding: '0.8rem 1.5rem',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '12px',
+                      cursor: batchGenerating ? 'not-allowed' : 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      transition: 'all 0.3s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!batchGenerating) e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!batchGenerating) e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                    }}
+                  >
+                    🗑️ 전체 삭제
+                  </button>
+                  <button
+                    onClick={generateSequentialTasks}
+                    disabled={batchGenerating}
+                    style={{
+                      padding: '0.8rem 1.5rem',
+                      background: batchGenerating 
+                        ? '#475569' 
+                        : 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: batchGenerating ? 'not-allowed' : 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      boxShadow: batchGenerating ? 'none' : '0 4px 15px rgba(168, 85, 247, 0.4)',
+                      transition: 'all 0.3s'
+                    }}
+                  >
+                    {batchGenerating ? '⏳ 분석 중...' : '전체 순차 생성 시작'}
+                  </button>
+                </div>
               </div>
             )}
             {(requirements || []).map((req, index) => {

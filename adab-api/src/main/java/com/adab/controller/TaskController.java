@@ -85,6 +85,13 @@ public class TaskController {
         return ResponseEntity.ok(taskService.deleteTasksByRequirementId(requirementId));
     }
 
+    // 6-1. 시스템 전체 과업 일괄 삭제
+    @DeleteMapping("/all")
+    public ResponseEntity<DeleteResponse> deleteAllTasks() {
+        log.info("Deleting all tasks in the system");
+        return ResponseEntity.ok(taskService.deleteAllTasks());
+    }
+
     // 7. 과업 존재 여부 확인
     @GetMapping("/requirement/{requirementId}/exists")
     public ResponseEntity<ExistsResponse> checkTasksExist(@PathVariable String requirementId) {

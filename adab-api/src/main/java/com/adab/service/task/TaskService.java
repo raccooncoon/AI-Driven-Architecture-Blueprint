@@ -149,6 +149,20 @@ public class TaskService {
     }
 
     /**
+     * 모든 과업 일괄 소프트 삭제
+     */
+    @Transactional
+    public DeleteResponse deleteAllTasks() {
+        int deletedCount = taskRepository.softDeleteAll(LocalDateTime.now());
+
+        return DeleteResponse.builder()
+                .success(true)
+                .message("All tasks in the system soft deleted successfully")
+                .deletedCount(deletedCount)
+                .build();
+    }
+
+    /**
      * 요구사항 ID로 과업 존재 여부 확인 (삭제되지 않은 것만)
      */
     public ExistsResponse checkTasksExist(String requirementId) {
@@ -168,7 +182,7 @@ public class TaskService {
      */
     private TaskResponse convertToResponse(Task task) {
         return TaskResponse.builder()
-                .id(task.getTaskId())  // uuid 대신 taskId 사용
+                .id(task.getTaskId()) // uuid 대신 taskId 사용
                 .parentRequirementId(task.getParentRequirementId())
                 .parentIndex(task.getParentIndex())
                 .summary(task.getSummary())
