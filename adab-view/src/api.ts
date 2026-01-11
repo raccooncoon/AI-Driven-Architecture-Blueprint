@@ -5,7 +5,7 @@ export const isAxiosError = (error: unknown): error is AxiosError<{ message?: st
 };
 
 export const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: '/api',
   timeout: 10000,
 });
 
@@ -133,7 +133,7 @@ export const generateTasksWithBackend = async (
   onError: (error: Error) => void
 ) => {
   try {
-    const response = await fetch('http://localhost:8080/api/tasks/generate', {
+    const response = await fetch('/api/tasks/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

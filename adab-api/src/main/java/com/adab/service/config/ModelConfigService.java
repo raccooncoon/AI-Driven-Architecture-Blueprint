@@ -20,6 +20,9 @@ public class ModelConfigService {
 
     private final ModelConfigRepository modelConfigRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${spring.ai.ollama.base-url:http://localhost:11434}")
+    private String envOllamaBaseUrl;
+
     /**
      * 실행 시 Gemini 모델의 maxTokens 설정을 자동으로 패치 (기존 2048 -> 4096)
      * 또한 모든 모델의 temperature 설정을 기존 0.7에서 0.0으로 패칭
@@ -42,6 +45,18 @@ public class ModelConfigService {
             if (temp == null || "0.7".equals(temp) || "0.0".equals(temp)) {
                 log.info("Patching model {} temperature from {} to 0.1", config.getName(), temp);
                 config.setTemperature("0.1");
+                modelConfigRepository.save(config);
+            }
+        });
+
+        // Ollama baseUrl 패치 (localhost나 min-sff 등 로컬 주소인 경우 환경 설정값으로 업데이트)
+        modelConfigRepository.findByName("ollama").ifPresent(config -> {
+            String dbUrl = config.getBaseUrl();
+            if (dbUrl != null
+                    && (dbUrl.contains("localhost") || dbUrl.contains("127.0.0.1") || dbUrl.contains("min-sff"))) {
+                log.info("Detected local/stale Ollama URL in DB: {}. Patching to environment-aware URL: {}", dbUrl,
+                        envOllamaBaseUrl);
+                config.setBaseUrl(envOllamaBaseUrl);
                 modelConfigRepository.save(config);
             }
         });
