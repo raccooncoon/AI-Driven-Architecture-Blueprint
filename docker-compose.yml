@@ -58,7 +58,7 @@ services:
     networks:
       - adab-network
     extra_hosts:
-      - "min-sff:host-gateway"
+      - "min-sff:host.docker.internal"
 
   adab-frontend:
     build:
