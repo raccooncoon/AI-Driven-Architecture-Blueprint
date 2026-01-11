@@ -53,7 +53,7 @@ public class ModelConfigService {
         modelConfigRepository.findByName("ollama").ifPresent(config -> {
             String dbUrl = config.getBaseUrl();
             if (dbUrl != null
-                    && (dbUrl.contains("localhost") || dbUrl.contains("127.0.0.1") || dbUrl.contains("min-sff"))) {
+                    && (dbUrl.contains("localhost") || dbUrl.contains("127.0.0.1"))) {
                 log.info("Detected local/stale Ollama URL in DB: {}. Patching to environment-aware URL: {}", dbUrl,
                         envOllamaBaseUrl);
                 config.setBaseUrl(envOllamaBaseUrl);
