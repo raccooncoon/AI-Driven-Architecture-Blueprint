@@ -106,6 +106,7 @@ public class DynamicChatModelService {
 
         OllamaApi ollamaApi = new OllamaApi(baseUrl);
 
+        // 기본 옵션 설정
         OllamaOptions options = OllamaOptions.create()
                 .withModel(config.getModelName())
                 .withNumCtx(8192) // 컨텍스트 윈도우 확장
@@ -115,8 +116,8 @@ public class DynamicChatModelService {
             options.withTemperature(Float.parseFloat(config.getTemperature()));
         }
 
-        log.info("Ollama Options: model={}, temperature={}, num_ctx=8192",
-                config.getModelName(), config.getTemperature());
+        log.info("Creating OllamaChatModel: baseUrl={}, model={}, num_ctx=8192",
+                baseUrl, config.getModelName());
 
         return new OllamaChatModel(ollamaApi, options);
     }

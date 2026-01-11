@@ -186,6 +186,7 @@ public class ModelConfigService {
         try {
             switch (provider) {
                 case "ollama":
+                    log.info("Testing Ollama connection to: {}", config.getBaseUrl());
                     return testOllamaConnection(config);
                 case "openai":
                     return testOpenAiConnection(config);
