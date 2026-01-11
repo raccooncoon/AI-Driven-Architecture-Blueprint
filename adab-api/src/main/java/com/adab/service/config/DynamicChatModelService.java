@@ -39,7 +39,7 @@ public class DynamicChatModelService {
     private String defaultModelName;
 
     public DynamicChatModelService(ModelConfigRepository modelConfigRepository,
-                                    @Autowired(required = false) ChatModel defaultChatModel) {
+            @Autowired(required = false) ChatModel defaultChatModel) {
         this.modelConfigRepository = modelConfigRepository;
         this.defaultChatModel = defaultChatModel;
     }
@@ -147,14 +147,25 @@ public class DynamicChatModelService {
                 config.getModelName(),
                 baseUrl,
                 temperature,
-                maxTokens
-        );
+                maxTokens);
     }
 
     private ChatModel createGeminiChatModel(ModelConfig config) {
-        // Gemini도 아직 Spring AI에서 공식 지원하지 않으므로
-        // 추후 구현
-        throw new RuntimeException("Gemini 모델은 현재 지원하지 않습니다.");
+        if (config.getApiKey() == null || config.getApiKey().isEmpty()) {
+            throw new RuntimeException("Gemini API 키가 설정되지 않았습니다.");
+        }
+
+        String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl()
+                : "https://generativelanguage.googleapis.com";
+        Float temperature = config.getTemperature() != null ? Float.parseFloat(config.getTemperature()) : 0.7f;
+        Integer maxTokens = config.getMaxTokens() != null ? Integer.parseInt(config.getMaxTokens()) : 4096;
+
+        return new GeminiChatModel(
+                config.getApiKey(),
+                config.getModelName(),
+                baseUrl,
+                temperature,
+                maxTokens);
     }
 
     private String formatModelName(String provider, String model) {

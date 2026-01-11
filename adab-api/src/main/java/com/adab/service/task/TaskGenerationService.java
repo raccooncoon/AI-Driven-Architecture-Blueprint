@@ -32,20 +32,20 @@ public class TaskGenerationService {
     private final DynamicChatModelService dynamicChatModelService;
 
     private static final Map<String, String> CATEGORY_MAP = Map.ofEntries(
-            Map.entry("통합 채팅 서비스", "CAT-001"),
-            Map.entry("데이터 마트 설계", "CAT-002"),
-            Map.entry("관리자 포털", "CAT-003"),
-            Map.entry("LLM 모델 관리", "CAT-004"),
-            Map.entry("LLMOps 구축", "CAT-005"),
-            Map.entry("문서 QA 및 요약", "CAT-006"),
-            Map.entry("보고서 자동 생성", "CAT-007"),
-            Map.entry("T2SQL 파이프라인", "CAT-008"),
-            Map.entry("벡터 검색 DB 구축", "CAT-009"),
-            Map.entry("AI 코딩 어시스턴트", "CAT-010"),
-            Map.entry("프로젝트 관리", "CAT-011"),
-            Map.entry("개발 표준", "CAT-012"),
-            Map.entry("유지보수", "CAT-013"),
-            Map.entry("교육지원", "CAT-014"));
+            Map.entry("통합 채팅 서비스", "INTEGRATED_CHAT_SERVICE"),
+            Map.entry("데이터 마트 설계", "DATA_MART_DESIGN"),
+            Map.entry("관리자 포털", "ADMIN_PORTAL"),
+            Map.entry("LLM 모델 관리", "LLM_MODEL_MANAGEMENT"),
+            Map.entry("LLMOps 구축", "LLMOPS_INFRASTRUCTURE"),
+            Map.entry("문서 QA 및 요약", "DOC_QA_AND_SUMMARY"),
+            Map.entry("보고서 자동 생성", "REPORT_GENERATION"),
+            Map.entry("T2SQL 파이프라인", "T2SQL_PIPELINE"),
+            Map.entry("벡터 검색 DB 구축", "VECTOR_SEARCH_DB"),
+            Map.entry("AI 코딩 어시스턴트", "AI_CODING_ASSISTANT"),
+            Map.entry("프로젝트 관리", "PROJECT_MANAGEMENT"),
+            Map.entry("개발 표준", "DEVELOPMENT_STANDARDS"),
+            Map.entry("유지보수", "MAINTENANCE"),
+            Map.entry("교육지원", "EDUCATION_SUPPORT"));
 
     public void generateTasksWithStreaming(TaskGenerationRequest request, SseEmitter emitter) {
         try {
@@ -114,7 +114,7 @@ public class TaskGenerationService {
                 }
 
                 // ID가 여전히 부적절하거나 명칭과 ID가 같은 경우 (ID 누락 시)
-                if (majorCategoryId == null || majorCategoryId.contains(" ") || majorCategoryId.length() > 10
+                if (majorCategoryId == null || majorCategoryId.contains(" ")
                         || majorCategoryId.equals(majorCategory)) {
                     majorCategoryId = "ETC-" + String.format("%03d", i + 1);
                 }
@@ -171,34 +171,62 @@ public class TaskGenerationService {
     private String buildPrompt(TaskGenerationRequest request) {
         return String.format(
                 """
-                        다음 RFP 요구사항을 분석하여 구체적이고 실행 가능한 세부 과업(Task)으로 분해해주세요.
+                        # Role
+                        You are a professional IT System Architect. Your task is to decompose the given RFP requirement into detailed, actionable implementation tasks.
 
-                        [요구사항 정보]
-                        - ID: %s
-                        - 명칭: %s
-                        - 정의: %s
-                        - 제안요청내용:
+                        # Input Data
+                        <requirement_info>
+                        - Requirement ID: %s
+                        - Requirement Name: %s
+                        - Definition: %s
+                        - Request Content:
                         %s
+                        </requirement_info>
 
-                        **1. 대분류 체계:**
-                        가장 적절한 대분류 명칭을 하나만 선택하세요.
-                        리스트: 통합 채팅 서비스, 데이터 마트 설계, 관리자 포털, LLM 모델 관리, LLMOps 구축, 문서 QA 및 요약, 보고서 자동 생성, T2SQL 파이프라인, 벡터 검색 DB 구축, AI 코딩 어시스턴트, 프로젝트 관리, 개발 표준, 유지보수, 교육지원
+                        # Task Decomposition Rules
+                        1. Analyze the 'Request Content' and split it into 2-5 detailed tasks based on functionality.
+                        2. Each task must be an independent unit of development.
+                        3. Tasks should be meaningful and descriptive.
 
-                        **2. 과업 분해 규칙:**
-                        - 제안요청내용의 1개 항목을 기능을 기준으로 2~5개 과업으로 분해
-                        - 독립적으로 개발 가능한 단위로 분해
-                        - 의미 있는 단위로 분해
+                        # Categorization Instructions
+                        - Select the most appropriate 'majorCategory' from the list below.
+                        - **NOTE**: You can propose a NEW category if none of the provided ones fit perfectly, but ensure it follows the same format: 'Korean Name' and a descriptive 'English_ID'.
+                        - **CRITICAL**: Use the exact Korean name for `majorCategory` and the corresponding English ID for `majorCategoryId`.
 
-                        **3. 응답 형식 (JSON 배열):**
+                        [Categories List]
+                        - 통합 채팅 서비스 (ID: INTEGRATED_CHAT_SERVICE)
+                        - 데이터 마트 설계 (ID: DATA_MART_DESIGN)
+                        - 관리자 포털 (ID: ADMIN_PORTAL)
+                        - LLM 모델 관리 (ID: LLM_MODEL_MANAGEMENT)
+                        - LLMOps 구축 (ID: LLMOPS_INFRASTRUCTURE)
+                        - 문서 QA 및 요약 (ID: DOC_QA_AND_SUMMARY)
+                        - 보고서 자동 생성 (ID: REPORT_GENERATION)
+                        - T2SQL 파이프라인 (ID: T2SQL_PIPELINE)
+                        - 벡터 검색 DB 구축 (ID: VECTOR_SEARCH_DB)
+                        - AI 코딩 어시스턴트 (ID: AI_CODING_ASSISTANT)
+                        - 프로젝트 관리 (ID: PROJECT_MANAGEMENT)
+                        - 개발 표준 (ID: DEVELOPMENT_STANDARDS)
+                        - 유지보수 (ID: MAINTENANCE)
+                        - 교육지원 (ID: EDUCATION_SUPPORT)
+
+                        # Output Format
+                        Return ONLY a valid JSON array of objects. Do not include any preamble or postamble.
+
+                        [JSON Structure]
                         [
                           {
-                            "summary": "과업 요약",
-                            "majorCategory": "선택한 대분류 명칭",
-                            "detailFunctionId": "FUNC-001",
-                            "detailFunction": "상세 기능명",
-                            "subFunction": "세부 기능 설명 (3-4문장)"
+                            "summary": "Short summary of the task (Korean)",
+                            "majorCategory": "Selected Korean Category Name",
+                            "majorCategoryId": "Corresponding English ID",
+                            "detailFunctionId": "FUNC-XXX (e.g., FUNC-001)",
+                            "detailFunction": "Specific function name (Korean)",
+                            "subFunction": "Detailed description of the task (Korean, 3-4 sentences)"
                           }
                         ]
+
+                        # Language Requirements
+                        - `majorCategoryId` and `detailFunctionId` MUST be in English.
+                        - All other descriptive fields (summary, majorCategory, detailFunction, subFunction) MUST be in Korean.
                         """,
                 request.getRequirementId(),
                 request.getName(),

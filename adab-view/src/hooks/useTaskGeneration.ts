@@ -82,14 +82,29 @@ export const useTaskGeneration = (
   const generateSequentialTasks = useCallback(async () => {
     if (batchGenerating) return;
 
-    // Filter requirements that don't have tasks yet
-    const visibleRequirements = requirements.filter(req => 
-      !taskCards.some(t => t.parentRequirementId?.trim() === req.requirementId?.trim())
+    const requirementsWithTasks = requirements.filter(req => 
+      taskCards.some(t => t.parentRequirementId?.trim() === req.requirementId?.trim())
     );
 
-    if (visibleRequirements.length === 0) {
-      alert('✅ 모든 요구사항에 이미 과업이 생성되어 있습니다.');
-      return;
+    let visibleRequirements = [...requirements];
+    
+    if (requirementsWithTasks.length > 0) {
+      const choice = confirm(
+        `일부 요구사항(${requirementsWithTasks.length}/${requirements.length})에 이미 과업이 존재합니다.\n\n` +
+        `[확인]: 기존 과업을 모두 삭제하고 '전체 새로 생성'합니다.\n` +
+        `[취소]: 과업이 없는 요구사항만 '건너뛰고 생성'합니다.`
+      );
+
+      if (!choice) {
+        visibleRequirements = requirements.filter(req => 
+          !taskCards.some(t => t.parentRequirementId?.trim() === req.requirementId?.trim())
+        );
+        
+        if (visibleRequirements.length === 0) {
+          alert('✅ 모든 요구사항에 이미 과업이 생성되어 있습니다.');
+          return;
+        }
+      }
     }
 
     setBatchGenerating(true);
@@ -97,7 +112,7 @@ export const useTaskGeneration = (
 
     for (let i = 0; i < visibleRequirements.length; i++) {
       const req = visibleRequirements[i];
-      const originalIndex = requirements.indexOf(req);
+      const originalIndex = requirements.findIndex(r => r.requirementId === req.requirementId);
 
       try {
         setBatchProgress({ current: i + 1, total: visibleRequirements.length });

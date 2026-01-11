@@ -83,11 +83,15 @@ function Settings({ onBack }: SettingsProps = {}) {
         name,
         enabled: false,
         isDefault: false,
-        modelName: name === 'ollama' ? 'gemma3:12b' : name === 'claude' ? 'claude-3-5-sonnet-20240620' : name === 'gemini' ? 'gemini-pro' : 'gpt-4',
+        modelName: name === 'ollama' ? 'gemma3:12b' : 
+                   name === 'claude' ? 'claude-3-5-sonnet-20240620' : 
+                   name === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4',
         apiKey: '',
-        baseUrl: name === 'ollama' ? 'http://localhost:11434' : name === 'claude' ? 'https://api.anthropic.com' : '',
+        baseUrl: name === 'ollama' ? 'http://localhost:11434' : 
+                 name === 'claude' ? 'https://api.anthropic.com' : 
+                 name === 'gemini' ? 'https://generativelanguage.googleapis.com' : '',
         temperature: '0.7',
-        maxTokens: name === 'claude' ? '4096' : '2048'
+        maxTokens: name === 'claude' ? '4096' : '4096'
       });
     }
   };

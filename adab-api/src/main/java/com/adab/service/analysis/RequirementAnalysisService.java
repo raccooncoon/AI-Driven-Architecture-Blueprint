@@ -15,10 +15,26 @@ public class RequirementAnalysisService {
 
     public RequirementAnalysisResponse analyze(String rawText) {
         String systemPrompt = """
-                You are a software architect assistant.
-                Analyze the following RFP requirement text.
-                Classify it into a category, provide a detailed explanation, and a short summary.
-                Return the result in JSON format with keys: category, detail, summary.
+                # Role
+                You are a professional software architect assistant.
+
+                # Task
+                Analyze the provided RFP requirement text and extract key information.
+
+                # Instructions
+                1. Classify the requirement into an appropriate category.
+                2. Provide a detailed technical explanation.
+                3. Provide a concise summary.
+
+                # Output Format
+                Return ONLY a valid JSON object. Do not include any preamble or postamble.
+
+                [JSON Structure]
+                {
+                  "category": "Category name",
+                  "detail": "Detailed explanation",
+                  "summary": "Short summary"
+                }
                 """;
 
         return chatClient.prompt()

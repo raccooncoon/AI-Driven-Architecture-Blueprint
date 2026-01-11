@@ -195,7 +195,7 @@ function App() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', width: '100%' }}>
             {/* Batch Action Banner */}
-            {requirements.some(req => !taskCards.some(t => t.parentRequirementId?.trim() === req.requirementId?.trim())) && (
+            {requirements.length > 0 && (
               <div style={{
                 background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(126, 34, 206, 0.1) 100%)',
                 border: '1px solid rgba(168, 85, 247, 0.3)',
@@ -210,10 +210,10 @@ function App() {
               }}>
                 <div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#c084fc', marginBottom: '0.25rem' }}>
-                    ⚡ 미생성 과업 일괄 처리
+                    ⚡ 과업 일괄 처리 ({requirements.length}개 요구사항)
                   </div>
                   <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                    아직 과업이 생성되지 않은 {requirements.filter(req => !taskCards.some(t => t.parentRequirementId?.trim() === req.requirementId?.trim())).length}개의 요구사항에 대해 AI 분석을 시작합니다.
+                    등록된 모든 요구사항에 대해 AI 분석 및 비즈니스 과업 생성을 시작합니다.
                   </div>
                 </div>
                 <button

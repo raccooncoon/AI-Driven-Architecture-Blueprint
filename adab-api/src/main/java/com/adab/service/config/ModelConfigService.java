@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.annotation.PostConstruct;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,6 +19,21 @@ import java.util.stream.Collectors;
 public class ModelConfigService {
 
     private final ModelConfigRepository modelConfigRepository;
+
+    /**
+     * 실행 시 Gemini 모델의 maxTokens 설정을 자동으로 패치 (기존 2048 -> 4096)
+     */
+    @PostConstruct
+    @Transactional
+    public void patchGeminiMaxTokens() {
+        modelConfigRepository.findByName("gemini").ifPresent(config -> {
+            if ("2048".equals(config.getMaxTokens()) || config.getMaxTokens() == null) {
+                log.info("Patching existing Gemini maxTokens from {} to 4096", config.getMaxTokens());
+                config.setMaxTokens("4096");
+                modelConfigRepository.save(config);
+            }
+        });
+    }
 
     /**
      * 모든 모델 설정 조회
@@ -109,40 +125,134 @@ public class ModelConfigService {
         ModelConfig config = modelConfigRepository.findByName(name)
                 .orElseThrow(() -> new RuntimeException("Model config not found: " + name));
 
-        if (config.getApiKey() == null || config.getApiKey().isEmpty()) {
-            throw new RuntimeException("API key not configured");
-        }
+        String provider = config.getName().toLowerCase();
+        log.info("Starting connection test for provider: {}", provider);
 
-        // Claude API 테스트 (간단한 메시지 전송)
         try {
-            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            headers.set("x-api-key", config.getApiKey());
-            headers.set("anthropic-version", "2023-06-01");
-
-            String requestBody = "{"
-                    + "\"model\":\"" + config.getModelName() + "\","
-                    + "\"max_tokens\":10,"
-                    + "\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]"
-                    + "}";
-
-            String url = config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()
-                    ? (config.getBaseUrl().endsWith("/messages") ? config.getBaseUrl() : config.getBaseUrl() + "/v1/messages")
-                    : "https://api.anthropic.com/v1/messages";
-
-            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(requestBody, headers);
-            org.springframework.http.ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                return "Connection successful! Model: " + config.getModelName();
-            } else {
-                throw new RuntimeException("API returned status: " + response.getStatusCode());
+            switch (provider) {
+                case "ollama":
+                    return testOllamaConnection(config);
+                case "openai":
+                    return testOpenAiConnection(config);
+                case "claude":
+                    return testClaudeConnection(config);
+                case "gemini":
+                    return testGeminiConnection(config);
+                default:
+                    throw new RuntimeException("Unsupported provider: " + provider);
             }
         } catch (Exception e) {
-            log.error("Test connection failed", e);
-            throw new RuntimeException("Connection test failed: " + e.getMessage());
+            log.error("Connection test failed for {}: {}", provider, e.getMessage());
+            throw new RuntimeException(e.getMessage());
         }
+    }
+
+    private org.springframework.web.client.RestTemplate createSecureRestTemplate() {
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(5000);
+        return new org.springframework.web.client.RestTemplate(factory);
+    }
+
+    private String sanitizeBaseUrl(String baseUrl, String defaultUrl) {
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            return defaultUrl;
+        }
+        String sanitized = baseUrl.trim();
+        if (sanitized.endsWith("/")) {
+            sanitized = sanitized.substring(0, sanitized.length() - 1);
+        }
+        return sanitized;
+    }
+
+    private String testOllamaConnection(ModelConfig config) {
+        org.springframework.web.client.RestTemplate restTemplate = createSecureRestTemplate();
+        String baseUrl = sanitizeBaseUrl(config.getBaseUrl(), "http://localhost:11434");
+        String url = baseUrl + "/api/tags";
+
+        log.info("Testing Ollama at: {}", url);
+        org.springframework.http.ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return "Ollama is reachable!";
+        }
+        throw new RuntimeException("Ollama returned status " + response.getStatusCode());
+    }
+
+    private String testOpenAiConnection(ModelConfig config) {
+        if (config.getApiKey() == null || config.getApiKey().isEmpty())
+            throw new RuntimeException("API Key is missing");
+
+        org.springframework.web.client.RestTemplate restTemplate = createSecureRestTemplate();
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.set("Authorization", "Bearer " + config.getApiKey());
+
+        String baseUrl = sanitizeBaseUrl(config.getBaseUrl(), "https://api.openai.com");
+        String url = baseUrl + "/v1/models";
+
+        log.info("Testing OpenAI at: {}", url);
+        org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+        org.springframework.http.ResponseEntity<String> response = restTemplate.exchange(url,
+                org.springframework.http.HttpMethod.GET, entity, String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return "OpenAI connection successful!";
+        }
+        throw new RuntimeException("OpenAI returned status " + response.getStatusCode());
+    }
+
+    private String testClaudeConnection(ModelConfig config) {
+        if (config.getApiKey() == null || config.getApiKey().isEmpty())
+            throw new RuntimeException("API Key is missing");
+
+        org.springframework.web.client.RestTemplate restTemplate = createSecureRestTemplate();
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", config.getApiKey());
+        headers.set("anthropic-version", "2023-06-01");
+
+        String baseUrl = sanitizeBaseUrl(config.getBaseUrl(), "https://api.anthropic.com");
+        String url = baseUrl + "/v1/messages";
+
+        String requestBody = String.format(
+                "{\"model\":\"%s\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+                config.getModelName() != null ? config.getModelName() : "claude-3-5-sonnet-20240620");
+
+        log.info("Testing Claude at: {}", url);
+        org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(requestBody,
+                headers);
+        org.springframework.http.ResponseEntity<String> response = restTemplate.postForEntity(url, entity,
+                String.class);
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return "Claude connection successful!";
+        }
+        throw new RuntimeException("Claude returned status " + response.getStatusCode());
+    }
+
+    private String testGeminiConnection(ModelConfig config) {
+        if (config.getApiKey() == null || config.getApiKey().isEmpty())
+            throw new RuntimeException("API Key is missing");
+
+        org.springframework.web.client.RestTemplate restTemplate = createSecureRestTemplate();
+        String baseUrl = sanitizeBaseUrl(config.getBaseUrl(), "https://generativelanguage.googleapis.com");
+        String modelName = config.getModelName() != null ? config.getModelName().trim() : "gemini-1.5-flash";
+
+        // Try v1 first as it's more stable for GA models
+        String url = String.format("%s/v1/models/%s?key=%s", baseUrl, modelName, config.getApiKey());
+
+        log.info("Testing Gemini at: {} (key masked)", url.split("\\?")[0]);
+        try {
+            org.springframework.http.ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return "Gemini connection successful! (Model: " + modelName + ")";
+            }
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            throw new RuntimeException(
+                    "Gemini model not found: " + modelName + ". Please check the model name (e.g., gemini-2.5-flash).");
+        } catch (Exception e) {
+            throw new RuntimeException("Gemini connection failed: " + e.getMessage());
+        }
+        throw new RuntimeException("Gemini returned an unexpected response");
     }
 
     /**
