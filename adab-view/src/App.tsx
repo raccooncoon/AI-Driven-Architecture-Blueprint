@@ -265,15 +265,15 @@ function App() {
                       if (!batchGenerating) e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
                     }}
                   >
-                    🗑️ 전체 삭제
+                    🗑️ 생성 과업 전체 삭제
                   </button>
                   <button
                     onClick={generateSequentialTasks}
                     disabled={batchGenerating}
                     style={{
                       padding: '0.8rem 1.5rem',
-                      background: batchGenerating 
-                        ? '#475569' 
+                      background: batchGenerating
+                        ? '#475569'
                         : 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
                       color: 'white',
                       border: 'none',
