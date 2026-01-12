@@ -1,0 +1,43 @@
+services:
+  adab-backend:
+    build:
+      context: ./adab-api
+      dockerfile: Dockerfile
+    container_name: adab-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+
+      # External Database Configuration
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:postgresql://host.docker.internal:5432/adab_db}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME:-user}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD:-password}
+
+      # External Ollama Configuration
+      - SPRING_AI_OLLAMA_BASE_URL=${SPRING_AI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL=${SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL:-gemma3:12b}
+
+      # Redis Configuration (If external, add here. If not needed, remove)
+      - SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-host.docker.internal}
+      - SPRING_DATA_REDIS_PORT=${SPRING_DATA_REDIS_PORT:-6379}
+    networks:
+      - adab-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  adab-frontend:
+    build:
+      context: ./adab-view
+      dockerfile: Dockerfile
+    container_name: adab-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - adab-backend
+    networks:
+      - adab-network
+
+networks:
+  adab-network:
+    driver: bridge
