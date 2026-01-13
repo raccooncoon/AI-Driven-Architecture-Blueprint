@@ -81,32 +81,36 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
       >
         {/* Main Content Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
-          {/* Top Info Grid - 2x2 Layout as requested */}
+          {/* Top Info Grid - Expanded for new fields */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '1rem',
-            padding: '1.25rem',
+            gridTemplateColumns: '70px 150px 1fr 220px', // 넓어진 ID와 구분 컬럼
+            gap: '1.5rem',
+            padding: '1.5rem',
             background: 'rgba(30, 41, 59, 0.4)',
             borderRadius: '12px',
             border: '1px solid rgba(148, 163, 184, 0.1)',
-            marginBottom: '0.5rem'
+            marginBottom: '0.5rem',
+            alignItems: 'center' // 전체 수직 중앙 정렬
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>서비스명</span>
-              <span style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 700 }}>{req.name}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.5px' }}>No.</span>
+              <span style={{ fontSize: '1.1rem', color: '#a855f7', fontWeight: 800 }}>{req.sequenceNo || index + 1}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>요구사항 정의</span>
-              <span style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 700 }}>{req.definition}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.5px' }}>구분</span>
+              <span style={{ fontSize: '1rem', color: '#f8fafc', fontWeight: 700 }}>{req.category || '-'}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.7rem', color: '#60a5fa', fontWeight: 600 }}>RFP ID</span>
-              <span style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 700 }}>{req.rfpId}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.5px' }}>요구사항 명</span>
+              <span style={{ fontSize: '1rem', color: '#f8fafc', fontWeight: 700 }}>
+                {req.rfpId && <span style={{ color: '#fbbf24', marginRight: '0.5rem', fontWeight: 800 }}>#{req.rfpId}</span>}
+                {req.name || '-'}
+              </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.7rem', color: '#60a5fa', fontWeight: 600 }}>요구사항 ID</span>
-              <span style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 700 }}>{req.requirementId}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#60a5fa', fontWeight: 600, letterSpacing: '0.5px' }}>ID</span>
+              <span style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.5px' }}>{req.requirementId}</span>
             </div>
           </div>
 
@@ -174,7 +178,10 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
               ) : (
                 <>
                   <button
-                    onClick={onStartEditing}
+                    onClick={() => {
+                      onStartEditing();
+                      /* Ensure specific focus if needed */
+                    }}
                     style={{
                       padding: '0.6rem 1.25rem',
                       background: 'rgba(139, 92, 246, 0.1)',
@@ -213,9 +220,11 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
                       whiteSpace: 'nowrap',
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'center',
                       gap: '0.6rem',
                       boxShadow: isGenerating ? 'none' : '0 4px 20px rgba(168, 85, 247, 0.4)',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '160px' // Prevent layout shift
                     }}
                   >
                     {isGenerating ? (
@@ -268,61 +277,52 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
             </div>
           )}
 
-          {/* Opinions and Deadline - Always visible */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>구축 의견</div>
-                {isEditing ? (
-                  <textarea
-                    value={editingContent.implementationOpinion}
-                    onChange={(e) => setEditingContent({ implementationOpinion: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem', background: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: 'white', minHeight: '80px' }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '0.9rem', color: '#cbd5e1', background: 'rgba(30, 41, 59, 0.3)', padding: '0.75rem', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>{req.implementationOpinion || '-'}</div>
-                )}
-              </div>
-              <div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>PO/BA 의견</div>
-                {isEditing ? (
-                  <textarea
-                    value={editingContent.pobaOpinion}
-                    onChange={(e) => setEditingContent({ pobaOpinion: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem', background: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: 'white', minHeight: '80px' }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '0.9rem', color: '#cbd5e1', background: 'rgba(30, 41, 59, 0.3)', padding: '0.75rem', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>{req.pobaOpinion || '-'}</div>
-                )}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>기술혁신 의견</div>
-                {isEditing ? (
-                  <textarea
-                    value={editingContent.techInnovationOpinion}
-                    onChange={(e) => setEditingContent({ techInnovationOpinion: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem', background: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: 'white', minHeight: '80px' }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '0.9rem', color: '#cbd5e1', background: 'rgba(30, 41, 59, 0.3)', padding: '0.75rem', borderRadius: '8px', whiteSpace: 'pre-wrap' }}>{req.techInnovationOpinion || '-'}</div>
-                )}
-              </div>
-              <div>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>완료기한</div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editingContent.deadline}
-                    onChange={(e) => setEditingContent({ deadline: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem', background: '#1e293b', border: '1px solid #475569', borderRadius: '8px', color: 'white' }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '0.9rem', color: '#cbd5e1', background: 'rgba(30, 41, 59, 0.3)', padding: '0.75rem', borderRadius: '8px' }}>{req.deadline || '-'}</div>
-                )}
-              </div>
-            </div>
+          {/* Details Grid (Opinions, Constraints, etc.) - Conditionally Rendered */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '1rem',
+            marginTop: '1rem'
+          }}>
+            {/* Helper to render fields */}
+            {[
+              { label: '요구사항 출처', value: req.source, editKey: 'source' },
+              { label: '구축 의견', value: req.implementationOpinion, editKey: 'implementationOpinion' },
+              { label: 'PO/BA 의견', value: req.pobaOpinion, editKey: 'pobaOpinion' },
+              { label: '기술혁신 의견', value: req.techInnovationOpinion, editKey: 'techInnovationOpinion' },
+              { label: '제약사항', value: req.constraints, editKey: 'constraints' },
+              { label: '해결방안', value: req.solution, editKey: 'solution' },
+              { label: '완료기한', value: req.deadline, editKey: 'deadline' },
+            ].map((field, idx) => {
+              if (!isEditing && !field.value) return null; // Hide empty in view mode
+
+              return (
+                <div key={idx} style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.4rem' }}>{field.label}</div>
+                  {isEditing ? (
+                    <textarea
+                      // @ts-ignore
+                      value={editingContent[field.editKey] || ''}
+                      // @ts-ignore
+                      onChange={(e) => setEditingContent({ [field.editKey]: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        background: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: '6px',
+                        color: 'white',
+                        fontSize: '0.9rem',
+                        minHeight: '60px',
+                        resize: 'vertical'
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: '0.9rem', color: '#e2e8f0', whiteSpace: 'pre-wrap' }}>{field.value}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -330,12 +330,12 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
       {/* Resize Handle Placeholder or Task Area */}
       {(hasAnyTaskCards || isGenerating) && (
         <>
-          <div 
+          <div
             onMouseDown={onResizeStart}
-            style={{ 
-              width: '1.5rem', 
-              display: 'flex', 
-              justifyContent: 'center', 
+            style={{
+              width: '1.5rem',
+              display: 'flex',
+              justifyContent: 'center',
               alignItems: 'center',
               cursor: 'col-resize',
               userSelect: 'none',
@@ -376,10 +376,10 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
             )}
 
             {showTaskContent && relatedTasks.length > 0 && (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '1rem', 
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
                 width: '100%'
               }}>
                 {relatedTasks.map(task => (
@@ -419,7 +419,7 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
                   filter: 'blur(30px)',
                   pointerEvents: 'none'
                 }} />
-                
+
                 <div style={{
                   position: 'absolute',
                   top: '-10%',
@@ -431,15 +431,15 @@ export const RequirementCard: React.FC<RequirementCardProps> = ({
                   filter: 'blur(10px)',
                   pointerEvents: 'none'
                 }} />
-                
-                <div style={{ 
-                  fontSize: '2rem', 
+
+                <div style={{
+                  fontSize: '2rem',
                   filter: 'drop-shadow(0 0 10px rgba(59, 130, 246, 0.5))',
                   animation: 'pulse 1.5s infinite ease-in-out'
                 }}>
                   ✨
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', zIndex: 1 }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60a5fa' }}>
                     AI가 과업을 설계 중입니다...

@@ -24,6 +24,9 @@ public class RequirementResponse {
     @JsonProperty("rfpId")
     private String rfpId;
 
+    @JsonProperty("sequenceNo")
+    private Integer sequenceNo;
+
     @JsonProperty("name")
     private String name;
 
@@ -44,6 +47,39 @@ public class RequirementResponse {
 
     @JsonProperty("techInnovationOpinion")
     private String techInnovationOpinion;
+
+    @JsonProperty("constraints")
+    private String constraints;
+
+    @JsonProperty("solution")
+    private String solution;
+
+    @JsonProperty("category")
+    private String category;
+
+    @JsonProperty("source")
+    private String source;
+
+    @JsonProperty("priority")
+    private String priority;
+
+    @JsonProperty("acceptance")
+    private String acceptance;
+
+    @JsonProperty("acceptanceReason")
+    private String acceptanceReason;
+
+    @JsonProperty("changeType")
+    private String changeType;
+
+    @JsonProperty("changeDate")
+    private String changeDate;
+
+    @JsonProperty("changeReason")
+    private String changeReason;
+
+    @JsonProperty("manager")
+    private String manager;
 
     @JsonProperty("createdAt")
     private LocalDateTime createdAt;

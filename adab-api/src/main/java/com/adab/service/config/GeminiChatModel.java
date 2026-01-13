@@ -73,31 +73,58 @@ public class GeminiChatModel extends AbstractHttpChatModel {
             String url = String.format("%s/v1/models/%s:generateContent?key=%s",
                     baseUrl, model.trim(), apiKey.trim());
 
-            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            log.info("Gemini Response status: {}", response.getStatusCode());
+            // Retry loop for 503 Service Unavailable
+            int maxRetries = 3;
+            int attempt = 0;
+            long backoff = 1000;
 
-            GeminiResponse geminiResponse = objectMapper.readValue(response.getBody(), GeminiResponse.class);
+            while (true) {
+                try {
+                    ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+                    log.info("Gemini Response status: {}", response.getStatusCode());
 
-            if (geminiResponse.getCandidates() != null && !geminiResponse.getCandidates().isEmpty()) {
-                log.info("Gemini Candidate Finish Reason: {}", geminiResponse.getCandidates().get(0).getFinishReason());
+                    GeminiResponse geminiResponse = objectMapper.readValue(response.getBody(), GeminiResponse.class);
+
+                    if (geminiResponse.getCandidates() != null && !geminiResponse.getCandidates().isEmpty()) {
+                        log.info("Gemini Candidate Finish Reason: {}",
+                                geminiResponse.getCandidates().get(0).getFinishReason());
+                    }
+
+                    if (geminiResponse.getCandidates() == null || geminiResponse.getCandidates().isEmpty()) {
+                        throw new RuntimeException("Gemini API returned no candidates. Check safety filters.");
+                    }
+
+                    GeminiCandidate candidate = geminiResponse.getCandidates().get(0);
+                    if (candidate.getContent() == null || candidate.getContent().getParts() == null
+                            || candidate.getContent().getParts().isEmpty()) {
+                        throw new RuntimeException(
+                                "Gemini candidate has no content. Finish reason: " + candidate.getFinishReason());
+                    }
+
+                    String responseText = candidate.getContent().getParts().get(0).getText();
+                    Generation generation = new Generation(responseText);
+
+                    return new ChatResponse(List.of(generation));
+
+                } catch (org.springframework.web.client.HttpServerErrorException e) {
+                    if (e.getStatusCode().value() == 503 && attempt < maxRetries) {
+                        try {
+                            log.warn("Gemini Service Unavailable (503). Retrying in {}ms (Attempt {}/{})", backoff,
+                                    attempt + 1, maxRetries);
+                            Thread.sleep(backoff);
+                            backoff *= 2; // Exponential backoff
+                            attempt++;
+                            continue;
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Interrupted during retry backoff", ie);
+                        }
+                    }
+                    throw e; // Rethrow if not 503 or retries exhausted
+                } catch (Exception e) {
+                    throw e; // Rethrow other exceptions
+                }
             }
-
-            if (geminiResponse.getCandidates() == null || geminiResponse.getCandidates().isEmpty()) {
-                throw new RuntimeException("Gemini API returned no candidates. Check safety filters.");
-            }
-
-            GeminiCandidate candidate = geminiResponse.getCandidates().get(0);
-            if (candidate.getContent() == null || candidate.getContent().getParts() == null
-                    || candidate.getContent().getParts().isEmpty()) {
-                throw new RuntimeException(
-                        "Gemini candidate has no content. Finish reason: " + candidate.getFinishReason());
-            }
-
-            String responseText = candidate.getContent().getParts().get(0).getText();
-            Generation generation = new Generation(responseText);
-
-            return new ChatResponse(List.of(generation));
-
         } catch (Exception e) {
             log.error("Gemini API failure", e);
             throw new RuntimeException("Gemini generation failed: " + e.getMessage(), e);

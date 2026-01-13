@@ -10,36 +10,37 @@ export const api = axios.create({
 });
 
 export const getRequirements = async (): Promise<Requirement[]> => {
-    const response = await api.get('/requirements');
-    return response.data;
+  const response = await api.get('/requirements');
+  return response.data;
 };
 
 // 전체 과업 조회
 export const getAllTasks = async () => {
-    const response = await api.get('/tasks/all');
-    return response.data;
+  const response = await api.get('/tasks/all');
+  return response.data;
 };
 
 // 요구사항 수정
 export const updateRequirement = async (requirementId: string, data: Partial<Requirement>) => {
-    const response = await api.put(`/requirements/${requirementId}`, data);
-    return response.data;
+  const response = await api.put(`/requirements/${requirementId}`, data);
+  return response.data;
 };
 
 // RFP 샘플 데이터 일괄 업로드
 export const uploadRequirementsBatch = async (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post('/requirements/batch', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    });
-    return response.data;
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/requirements/batch', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
 };
 
 export type Requirement = {
   requirementId: string;
+  sequenceNo?: number;
   rfpId?: string;
   name?: string;
   definition?: string;
@@ -48,6 +49,17 @@ export type Requirement = {
   implementationOpinion?: string;
   pobaOpinion?: string;
   techInnovationOpinion?: string;
+  constraints?: string;
+  solution?: string;
+  category?: string;
+  source?: string;
+  priority?: string;
+  acceptance?: string;
+  acceptanceReason?: string;
+  changeType?: string;
+  changeDate?: string;
+  changeReason?: string;
+  manager?: string;
   createdAt?: string;
   updatedAt?: string;
 }

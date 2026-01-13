@@ -66,7 +66,7 @@ function App() {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(300, Math.min(2000, e.clientX - 32)); 
+      const newWidth = Math.max(300, Math.min(2000, e.clientX - 32));
       setLeftWidth(newWidth);
     };
 
@@ -78,7 +78,7 @@ function App() {
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
+
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
@@ -191,7 +191,7 @@ function App() {
     return (
       <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' }}>
         <div style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: 'white', padding: '2rem 3rem', borderRadius: '16px', fontSize: '1.1rem', fontWeight: 600, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)', textAlign: 'center' }}>
-          ❌ 에러 발생<br/>
+          ❌ 에러 발생<br />
           <span style={{ fontSize: '0.9rem', opacity: 0.9, marginTop: '0.5rem', display: 'block' }}>{error}</span>
           <button onClick={() => refetch()} style={{ marginTop: '1.5rem', padding: '0.5rem 1rem', background: 'white', color: '#b91c1c', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>다시 시도</button>
         </div>
@@ -213,10 +213,83 @@ function App() {
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>등록된 요구사항이 없습니다</div>
               <div style={{ fontSize: '1rem', color: '#94a3b8', marginBottom: '2rem' }}>RFP 샘플 데이터를 업로드하여 시작하세요</div>
-              <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileUpload} style={{ display: 'none' }} />
-              <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ padding: '1rem 2rem', background: uploading ? '#64748b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: 600 }}>
-                {uploading ? '⚙️ 업로드 중...' : '📤 JSON 파일 업로드'}
-              </button>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ width: '100%', padding: '1rem 2rem', background: uploading ? '#64748b' : '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: 600 }}>
+                  {uploading ? '⚙️ 업로드 중...' : '📤 JSON 파일 업로드'}
+                </button>
+
+                <div style={{ position: 'relative', width: '100%', textAlign: 'center', margin: '0.5rem 0' }}>
+                  <div style={{ height: '1px', background: '#334155', width: '100%', position: 'absolute', top: '50%' }}></div>
+                  <span style={{ background: '#1e293b', padding: '0 1rem', color: '#94a3b8', position: 'relative', fontSize: '0.9rem' }}>또는</span>
+                </div>
+
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleFileUpload}
+                  id="excel-upload"
+                  style={{ display: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                  <button
+                    onClick={() => document.getElementById('excel-upload')?.click()}
+                    disabled={uploading}
+                    style={{
+                      flex: 1,
+                      padding: '1rem',
+                      background: uploading ? '#64748b' : '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {uploading ? '⚙️ 업로드 중...' : (
+                      <>
+                        <span>📊</span>
+                        <span>Excel 업로드</span>
+                      </>
+                    )}
+                  </button>
+                  <a
+                    href="/api/requirements/sample-excel"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      flex: 1,
+                      padding: '1rem',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: '#e2e8f0',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                  >
+                    <span>⬇️</span>
+                    <span>샘플 양식 다운로드</span>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
@@ -291,7 +364,7 @@ function App() {
               </div>
             )}
             {(requirements || []).map((req, index) => {
-              const relatedTasks = (taskCards || []).filter(t => 
+              const relatedTasks = (taskCards || []).filter(t =>
                 t.parentRequirementId?.trim() === req.requirementId?.trim()
               );
 

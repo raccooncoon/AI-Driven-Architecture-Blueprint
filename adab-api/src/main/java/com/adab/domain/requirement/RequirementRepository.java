@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface RequirementRepository extends JpaRepository<Requirement, String> {
     List<Requirement> findAllByOrderByRequirementIdAsc();
+
+    List<Requirement> findAllByOrderBySequenceNoAsc();
 }

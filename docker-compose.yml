@@ -13,7 +13,7 @@ services:
     networks:
       - adab-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d adab_db"]
+      test: [ "CMD-SHELL", "pg_isready -U user -d adab_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -36,7 +36,6 @@ services:
     networks:
       - adab-network
 
-
   adab-backend:
     build:
       context: ./adab-api
@@ -45,6 +44,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - SPRING_PROFILES_ACTIVE=dev
       - SPRING_DATASOURCE_URL=jdbc:postgresql://adab-postgres:5432/adab_db
       - SPRING_DATASOURCE_USERNAME=user
       - SPRING_DATASOURCE_PASSWORD=password

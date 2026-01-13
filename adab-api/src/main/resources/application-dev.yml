@@ -1,0 +1,39 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+      
+  datasource:
+    # Docker Compose나 환경변수에서 오버라이드 가능, 기본값은 Localhost
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/adab_db}
+    username: ${SPRING_DATASOURCE_USERNAME:user}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        use_sql_comments: true
+
+  ai:
+    ollama:
+      base-url: ${SPRING_AI_OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        enabled: true
+        options:
+          model: ${SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL:gemma:2b}
+          temperature: 0.7
+
+logging:
+  level:
+    root: INFO
+    com.adab: DEBUG                  # 우리 패키지 디버그
+    org.hibernate.SQL: DEBUG         # 실행되는 쿼리 보기
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE # 바인딩 파라미터 값 보기
+    org.springframework.ai: DEBUG    # AI 연동 로그 보기

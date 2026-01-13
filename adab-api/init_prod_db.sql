@@ -37,6 +37,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO adab_prod_us
 -- Requirements 테이블
 CREATE TABLE IF NOT EXISTS requirements (
     requirement_id VARCHAR(255) PRIMARY KEY,
+    sequence_no INTEGER,
     rfp_id VARCHAR(255),
     name VARCHAR(255),
     definition VARCHAR(255),
@@ -45,6 +46,19 @@ CREATE TABLE IF NOT EXISTS requirements (
     implementation_opinion TEXT,
     poba_opinion TEXT,
     tech_innovation_opinion TEXT,
+    
+    -- New columns
+    constraints TEXT,
+    solution TEXT,
+    category VARCHAR(255),
+    source VARCHAR(255),
+    priority VARCHAR(50),
+    acceptance VARCHAR(50),
+    acceptance_reason TEXT,
+    change_type VARCHAR(100),
+    change_date VARCHAR(50),
+    change_reason TEXT,
+    manager VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
