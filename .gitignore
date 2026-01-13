@@ -11,7 +11,7 @@ bin/
 *.log
 *.jar
 *.war
-wrapper/gradle-wrapper.jar
+!wrapper/gradle-wrapper.jar
 
 # Spring Boot
 target/

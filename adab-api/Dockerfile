@@ -1,24 +1,19 @@
 # Build stage
-FROM eclipse-temurin:17-jdk AS build
+FROM gradle:8-jdk17 AS build
 WORKDIR /app
 
 # Copy gradle files
-COPY gradlew .
-COPY gradle gradle
 COPY build.gradle.kts .
 COPY settings.gradle.kts .
 
-# Change permissions
-RUN chmod +x gradlew
-
 # Pre-fetch dependencies
-RUN ./gradlew dependencies --no-daemon || true
+RUN gradle dependencies --no-daemon || true
 
 # Copy source
 COPY src src
 
 # Build application
-RUN ./gradlew bootJar --no-daemon
+RUN gradle bootJar --no-daemon
 
 # Run stage
 FROM eclipse-temurin:17-jre
